@@ -6,16 +6,27 @@
     <title>Impressum – RenditeLab</title>
     <meta name="robots" content="noindex, nofollow">
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fraunces:wght@700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Inter', system-ui, sans-serif; background: #f0f4f8; color: #0f172a; line-height: 1.7; min-height: 100vh; display: flex; flex-direction: column; }
+        body {
+            font-family: 'Inter Tight', system-ui, sans-serif;
+            background: #fafafa;
+            color: #111111;
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            font-size: 13px;
+            letter-spacing: -0.005em;
+        }
 
         header {
-            background: #ffffff;
-            box-shadow: 0 1px 0 #e2e8f0, 0 2px 12px rgba(15,23,42,.06);
+            background: #111111;
+            border-bottom: 1px solid #1a1a1a;
             padding: 0 28px;
-            height: 61px;
+            height: 54px;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -23,77 +34,131 @@
             top: 0;
             z-index: 100;
         }
-        .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; }
-        .logo-icon { font-size: 22px; }
-        .logo-name { font-family: 'Fraunces', serif; font-size: 18px; font-weight: 700; color: #0f172a; }
-        .logo-badge { font-size: 10px; font-weight: 700; background: #0ea5e9; color: #fff; padding: 2px 7px; border-radius: 100px; letter-spacing: .05em; }
-        .header-back { font-size: 13px; color: #64748b; text-decoration: none; padding: 7px 14px; border: 1px solid #e2e8f0; border-radius: 8px; transition: all .15s; }
-        .header-back:hover { border-color: #0ea5e9; color: #0ea5e9; }
+        .logo { display: flex; align-items: center; gap: 12px; text-decoration: none; color: #ffffff; }
+        .logo-icon {
+            width: 20px; height: 20px;
+            background: #d63a14;
+            display: block;
+            flex-shrink: 0;
+        }
+        .logo-text {
+            font-family: 'Inter Tight', sans-serif;
+            font-size: 17px; font-weight: 700;
+            letter-spacing: -0.02em;
+            color: #ffffff;
+        }
+        .logo-version {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 9px; color: rgba(255,255,255,.5);
+            border: 1px solid #2a2a2a;
+            padding: 3px 6px;
+            letter-spacing: .10em; font-weight: 600;
+            text-transform: uppercase;
+        }
+        .header-back {
+            font-family: 'Inter Tight', sans-serif;
+            font-size: 10px; font-weight: 600;
+            letter-spacing: .12em; text-transform: uppercase;
+            color: rgba(255,255,255,.7);
+            text-decoration: none;
+            padding: 0 18px;
+            border-left: 1px solid #2a2a2a;
+            height: 100%; display: flex; align-items: center;
+            transition: color .15s;
+        }
+        .header-back:hover { color: #d63a14; }
 
         main { flex: 1; max-width: 760px; margin: 48px auto; padding: 0 24px 48px; width: 100%; }
 
-        .page-title { font-family: 'Fraunces', serif; font-size: 32px; font-weight: 700; color: #0f172a; margin-bottom: 8px; }
-        .page-subtitle { font-size: 14px; color: #64748b; margin-bottom: 40px; }
+        .page-title {
+            font-family: 'Inter Tight', sans-serif;
+            font-size: 28px; font-weight: 700;
+            color: #111111; margin-bottom: 6px;
+            letter-spacing: -0.025em;
+        }
+        .page-subtitle {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 11px; color: #8a8a8a;
+            margin-bottom: 36px;
+            text-transform: uppercase; letter-spacing: .10em;
+        }
 
         .card {
             background: #ffffff;
-            border: 1px solid #e2e8f0;
-            border-radius: 14px;
-            padding: 28px 32px;
-            margin-bottom: 20px;
-            box-shadow: 0 1px 3px rgba(15,23,42,.06), 0 4px 20px rgba(15,23,42,.06);
+            border: 1px solid #e8e8e6;
+            border-top: 2px solid #111111;
+            padding: 24px 28px;
+            margin-bottom: 1px;
         }
-        .card h2 { font-size: 15px; font-weight: 600; color: #0f172a; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid #f1f5f9; }
-        .card p, .card address { font-size: 14px; color: #475569; font-style: normal; line-height: 1.8; }
-        .card a { color: #0ea5e9; text-decoration: none; }
+        .card:first-of-type { border-top-color: #d63a14; }
+        .card h2 {
+            font-family: 'Inter Tight', sans-serif;
+            font-size: 10px; font-weight: 700;
+            color: #111111; margin-bottom: 14px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e8e8e6;
+            text-transform: uppercase; letter-spacing: .16em;
+        }
+        .card p, .card address {
+            font-size: 13px; color: #444444;
+            font-style: normal; line-height: 1.8;
+            margin-bottom: 10px;
+        }
+        .card p:last-child, .card address:last-child { margin-bottom: 0; }
+        .card a { color: #d63a14; text-decoration: none; }
         .card a:hover { text-decoration: underline; }
+        .card strong { color: #111111; font-weight: 600; }
 
         .placeholder {
             display: inline-block;
-            background: #fef3c7;
-            border: 1px dashed #f59e0b;
-            border-radius: 4px;
+            background: #fff8ed;
+            border: 1px dashed #d63a14;
             padding: 1px 6px;
-            font-size: 13px;
-            color: #92400e;
-            font-family: monospace;
+            font-size: 12px;
+            color: #8a3a1f;
+            font-family: 'IBM Plex Mono', monospace;
         }
         .placeholder-note {
             background: #fff8ed;
-            border: 1px solid #fed7aa;
-            border-radius: 8px;
+            border: 1px solid #d63a14;
+            border-left: 3px solid #d63a14;
             padding: 12px 16px;
             margin-bottom: 24px;
-            font-size: 13px;
-            color: #92400e;
+            font-size: 12px;
+            color: #8a3a1f;
+            font-family: 'IBM Plex Mono', monospace;
+            letter-spacing: .01em;
         }
 
         footer {
-            background: #1e2d45;
-            color: #94a3b8;
+            background: #111111;
+            color: rgba(255,255,255,.4);
             text-align: center;
             padding: 20px;
-            font-size: 12px;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 11px;
+            letter-spacing: .05em;
+            border-top: 1px solid #1a1a1a;
         }
-        footer a { color: #94a3b8; text-decoration: none; }
-        footer a:hover { color: #e2e8f0; }
-        footer span { margin: 0 6px; opacity: .4; }
+        footer a { color: rgba(255,255,255,.5); text-decoration: none; }
+        footer a:hover { color: #ffffff; }
+        footer span { margin: 0 8px; opacity: .3; }
 
         @media (max-width: 600px) {
             main { margin: 24px auto; padding: 0 16px 32px; }
-            .page-title { font-size: 24px; }
-            .card { padding: 20px; }
+            .page-title { font-size: 22px; }
+            .card { padding: 18px 20px; }
         }
     </style>
 </head>
 <body>
     <header>
         <a class="logo" href="/">
-            <span class="logo-icon">🏠</span>
-            <span class="logo-name">RenditeLab</span>
-            <span class="logo-badge">PRO</span>
+            <span class="logo-icon"></span>
+            <span class="logo-text">RenditeLab</span>
+            <span class="logo-version">v3.4</span>
         </a>
-        <a class="header-back" href="/">← Zurück zum Rechner</a>
+        <a class="header-back" href="/">← Zurück</a>
     </header>
 
     <main>
@@ -101,7 +166,7 @@
         <p class="page-subtitle">Angaben gemäß § 5 TMG</p>
 
         <div class="placeholder-note">
-            ⚠️ Bitte ersetze alle <code style="background:#fde68a;padding:1px 4px;border-radius:3px;">gelb markierten</code> Platzhalter mit deinen echten Daten, bevor die Seite öffentlich zugänglich ist.
+            ⚠ Bitte alle gelb markierten Platzhalter vor dem Go-Live ersetzen.
         </div>
 
         <div class="card">
@@ -119,7 +184,7 @@
             <p>
                 E-Mail: <a href="mailto:[DEINE@EMAIL.DE]" class="placeholder">[DEINE@EMAIL.DE]</a>
             </p>
-            <p style="margin-top:10px; font-size:13px; color:#94a3b8;">
+            <p style="margin-top:10px; font-size:12px; color:#8a8a8a; font-family:'IBM Plex Mono',monospace;">
                 Anfragen werden in der Regel innerhalb von 5 Werktagen beantwortet.
             </p>
         </div>
@@ -135,14 +200,14 @@
 
         <div class="card">
             <h2>Haftungsausschluss</h2>
-            <p style="margin-bottom:12px;">
-                <strong style="color:#0f172a;">Haftung für Inhalte:</strong> Die Inhalte dieser Website wurden mit größter Sorgfalt erstellt.
+            <p>
+                <strong>Haftung für Inhalte:</strong> Die Inhalte dieser Website wurden mit größter Sorgfalt erstellt.
                 Für die Richtigkeit, Vollständigkeit und Aktualität der Inhalte übernehme ich keine Gewähr.
                 Als Diensteanbieter bin ich gemäß § 7 Abs. 1 TMG für eigene Inhalte verantwortlich.
                 Nach §§ 8–10 TMG besteht keine Verpflichtung, übermittelte oder gespeicherte fremde Informationen zu überwachen.
             </p>
             <p>
-                <strong style="color:#0f172a;">Haftung für Links:</strong> Das Angebot enthält Links zu externen Websites Dritter.
+                <strong>Haftung für Links:</strong> Das Angebot enthält Links zu externen Websites Dritter.
                 Für die Inhalte der verlinkten Seiten ist stets der jeweilige Anbieter verantwortlich.
                 Eine permanente inhaltliche Kontrolle der verlinkten Seiten ist ohne konkrete Anhaltspunkte einer Rechtsverletzung nicht zumutbar.
             </p>
@@ -162,7 +227,7 @@
             <h2>Streitschlichtung (EU)</h2>
             <p>
                 Die Europäische Kommission stellt eine Plattform zur Online-Streitbeilegung (OS) bereit:
-                <a href="https://ec.europa.eu/consumers/odr/" target="_blank" rel="noopener">https://ec.europa.eu/consumers/odr/</a>.<br>
+                <a href="https://ec.europa.eu/consumers/odr/" target="_blank" rel="noopener">ec.europa.eu/consumers/odr</a>.<br>
                 Ich bin nicht bereit oder verpflichtet, an Streitbeilegungsverfahren vor einer Verbraucherschlichtungsstelle teilzunehmen.
             </p>
         </div>

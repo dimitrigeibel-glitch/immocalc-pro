@@ -6,16 +6,27 @@
     <title>Datenschutzerklärung – RenditeLab</title>
     <meta name="robots" content="noindex, nofollow">
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fraunces:wght@700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Inter', system-ui, sans-serif; background: #f0f4f8; color: #0f172a; line-height: 1.7; min-height: 100vh; display: flex; flex-direction: column; }
+        body {
+            font-family: 'Inter Tight', system-ui, sans-serif;
+            background: #fafafa;
+            color: #111111;
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            font-size: 13px;
+            letter-spacing: -0.005em;
+        }
 
         header {
-            background: #ffffff;
-            box-shadow: 0 1px 0 #e2e8f0, 0 2px 12px rgba(15,23,42,.06);
+            background: #111111;
+            border-bottom: 1px solid #1a1a1a;
             padding: 0 28px;
-            height: 61px;
+            height: 54px;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -23,87 +34,155 @@
             top: 0;
             z-index: 100;
         }
-        .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; }
-        .logo-icon { font-size: 22px; }
-        .logo-name { font-family: 'Fraunces', serif; font-size: 18px; font-weight: 700; color: #0f172a; }
-        .logo-badge { font-size: 10px; font-weight: 700; background: #0ea5e9; color: #fff; padding: 2px 7px; border-radius: 100px; letter-spacing: .05em; }
-        .header-back { font-size: 13px; color: #64748b; text-decoration: none; padding: 7px 14px; border: 1px solid #e2e8f0; border-radius: 8px; transition: all .15s; }
-        .header-back:hover { border-color: #0ea5e9; color: #0ea5e9; }
+        .logo { display: flex; align-items: center; gap: 12px; text-decoration: none; color: #ffffff; }
+        .logo-icon {
+            width: 20px; height: 20px;
+            background: #d63a14;
+            display: block;
+            flex-shrink: 0;
+        }
+        .logo-text {
+            font-family: 'Inter Tight', sans-serif;
+            font-size: 17px; font-weight: 700;
+            letter-spacing: -0.02em;
+            color: #ffffff;
+        }
+        .logo-version {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 9px; color: rgba(255,255,255,.5);
+            border: 1px solid #2a2a2a;
+            padding: 3px 6px;
+            letter-spacing: .10em; font-weight: 600;
+            text-transform: uppercase;
+        }
+        .header-back {
+            font-family: 'Inter Tight', sans-serif;
+            font-size: 10px; font-weight: 600;
+            letter-spacing: .12em; text-transform: uppercase;
+            color: rgba(255,255,255,.7);
+            text-decoration: none;
+            padding: 0 18px;
+            border-left: 1px solid #2a2a2a;
+            height: 100%; display: flex; align-items: center;
+            transition: color .15s;
+        }
+        .header-back:hover { color: #d63a14; }
 
         main { flex: 1; max-width: 760px; margin: 48px auto; padding: 0 24px 48px; width: 100%; }
 
-        .page-title { font-family: 'Fraunces', serif; font-size: 32px; font-weight: 700; color: #0f172a; margin-bottom: 8px; }
-        .page-subtitle { font-size: 14px; color: #64748b; margin-bottom: 40px; }
-
-        .card {
-            background: #ffffff;
-            border: 1px solid #e2e8f0;
-            border-radius: 14px;
-            padding: 28px 32px;
-            margin-bottom: 20px;
-            box-shadow: 0 1px 3px rgba(15,23,42,.06), 0 4px 20px rgba(15,23,42,.06);
+        .page-title {
+            font-family: 'Inter Tight', sans-serif;
+            font-size: 28px; font-weight: 700;
+            color: #111111; margin-bottom: 6px;
+            letter-spacing: -0.025em;
         }
-        .card h2 { font-size: 15px; font-weight: 600; color: #0f172a; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid #f1f5f9; }
-        .card h3 { font-size: 13px; font-weight: 600; color: #334155; margin: 16px 0 6px; }
-        .card p { font-size: 14px; color: #475569; line-height: 1.8; margin-bottom: 10px; }
-        .card p:last-child { margin-bottom: 0; }
-        .card a { color: #0ea5e9; text-decoration: none; }
-        .card a:hover { text-decoration: underline; }
-        .card ul { font-size: 14px; color: #475569; padding-left: 20px; margin: 8px 0; }
-        .card ul li { margin-bottom: 4px; }
+        .page-subtitle {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 11px; color: #8a8a8a;
+            margin-bottom: 36px;
+            text-transform: uppercase; letter-spacing: .10em;
+        }
 
         .highlight-box {
-            background: #f0fdf4;
-            border: 1px solid #bbf7d0;
-            border-radius: 8px;
+            background: #f1f6f3;
+            border: 1px solid #0f6b39;
+            border-left: 3px solid #0f6b39;
             padding: 14px 18px;
-            margin-bottom: 20px;
-            font-size: 14px;
-            color: #166534;
+            margin-bottom: 2px;
+            font-size: 13px;
+            color: #0f5030;
         }
         .highlight-box strong { font-weight: 600; }
 
+        .card {
+            background: #ffffff;
+            border: 1px solid #e8e8e6;
+            border-top: 0;
+            padding: 24px 28px;
+            margin-bottom: 1px;
+        }
+        .card:first-of-type { border-top: 2px solid #d63a14; }
+        .card h2 {
+            font-family: 'Inter Tight', sans-serif;
+            font-size: 10px; font-weight: 700;
+            color: #111111; margin-bottom: 14px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e8e8e6;
+            text-transform: uppercase; letter-spacing: .16em;
+        }
+        .card h3 {
+            font-family: 'Inter Tight', sans-serif;
+            font-size: 11px; font-weight: 600;
+            color: #444444; margin: 16px 0 6px;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .card p { font-size: 13px; color: #444444; line-height: 1.8; margin-bottom: 10px; }
+        .card p:last-child { margin-bottom: 0; }
+        .card a { color: #d63a14; text-decoration: none; }
+        .card a:hover { text-decoration: underline; }
+        .card ul { font-size: 13px; color: #444444; padding-left: 18px; margin: 8px 0; }
+        .card ul li { margin-bottom: 4px; }
+        .card strong { color: #111111; font-weight: 600; }
+        .card code {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 11px;
+            background: #f5f5f4;
+            border: 1px solid #e8e8e6;
+            padding: 1px 5px;
+            color: #444444;
+        }
+
         .placeholder {
             display: inline-block;
-            background: #fef3c7;
-            border: 1px dashed #f59e0b;
-            border-radius: 4px;
+            background: #fff8ed;
+            border: 1px dashed #d63a14;
             padding: 1px 6px;
-            font-size: 13px;
-            color: #92400e;
-            font-family: monospace;
+            font-size: 12px;
+            color: #8a3a1f;
+            font-family: 'IBM Plex Mono', monospace;
         }
 
-        .tag { display: inline-block; font-size: 11px; font-weight: 600; background: #f1f5f9; color: #64748b; border-radius: 4px; padding: 2px 7px; margin-left: 6px; vertical-align: middle; }
+        .tag {
+            display: inline-block;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 9px; font-weight: 600;
+            background: #f5f5f4; color: #8a8a8a;
+            padding: 2px 6px; margin-left: 6px;
+            text-transform: uppercase; letter-spacing: .08em;
+            vertical-align: middle;
+        }
         .tag.green { background: #dcfce7; color: #166534; }
-        .tag.blue { background: #dbeafe; color: #1d4ed8; }
+        .tag.blue  { background: #dbeafe; color: #1d4ed8; }
 
         footer {
-            background: #1e2d45;
-            color: #94a3b8;
+            background: #111111;
+            color: rgba(255,255,255,.4);
             text-align: center;
             padding: 20px;
-            font-size: 12px;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 11px;
+            letter-spacing: .05em;
+            border-top: 1px solid #1a1a1a;
         }
-        footer a { color: #94a3b8; text-decoration: none; }
-        footer a:hover { color: #e2e8f0; }
-        footer span { margin: 0 6px; opacity: .4; }
+        footer a { color: rgba(255,255,255,.5); text-decoration: none; }
+        footer a:hover { color: #ffffff; }
+        footer span { margin: 0 8px; opacity: .3; }
 
         @media (max-width: 600px) {
             main { margin: 24px auto; padding: 0 16px 32px; }
-            .page-title { font-size: 24px; }
-            .card { padding: 20px; }
+            .page-title { font-size: 22px; }
+            .card { padding: 18px 20px; }
         }
     </style>
 </head>
 <body>
     <header>
         <a class="logo" href="/">
-            <span class="logo-icon">🏠</span>
-            <span class="logo-name">RenditeLab</span>
-            <span class="logo-badge">PRO</span>
+            <span class="logo-icon"></span>
+            <span class="logo-text">RenditeLab</span>
+            <span class="logo-version">v3.4</span>
         </a>
-        <a class="header-back" href="/">← Zurück zum Rechner</a>
+        <a class="header-back" href="/">← Zurück</a>
     </header>
 
     <main>
