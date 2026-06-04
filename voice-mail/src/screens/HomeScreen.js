@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useKeepAwake } from 'expo-keep-awake';
+import * as Linking from 'expo-linking';
 import {
   GoogleSignin,
   GoogleSigninButton,
@@ -17,10 +18,17 @@ export default function HomeScreen({ navigation }) {
   useKeepAwake();
   useAudioSession();
 
-  const [accessToken, setAccessToken] = useState(null);
   const [userEmail, setUserEmail] = useState(null);
-  const { state, startFlow, reset } = useVoiceFlow(accessToken);
+  const { state, startFlow, stopFlow, reset } = useVoiceFlow();
 
+  const isIdle =
+    state.voiceState === VOICE_STATE.IDLE ||
+    state.voiceState === VOICE_STATE.DONE ||
+    state.voiceState === VOICE_STATE.ERROR;
+
+  const isActive = !isIdle;
+
+  // Google Sign-In setup
   useEffect(() => {
     GoogleSignin.configure({
       webClientId: Constants.expoConfig.extra.GOOGLE_WEB_CLIENT_ID,
@@ -32,22 +40,30 @@ export default function HomeScreen({ navigation }) {
       offlineAccess: false,
     });
 
-    // Try silent sign-in on app start
     GoogleSignin.signInSilently()
-      .then(async (user) => {
-        const tokens = await GoogleSignin.getTokens();
-        setAccessToken(tokens.accessToken);
-        setUserEmail(user.user.email);
-      })
+      .then((user) => setUserEmail(user.user.email))
       .catch(() => {});
   }, []);
+
+  // Deep link handler: voicemail://start triggers the flow
+  // Set up an iOS Shortcut with "Open URL: voicemail://start" to use with Siri.
+  useEffect(() => {
+    const handleUrl = ({ url }) => {
+      if (url?.includes('start') && userEmail && isIdle) startFlow();
+    };
+
+    Linking.getInitialURL().then((url) => {
+      if (url?.includes('start') && userEmail && isIdle) startFlow();
+    });
+
+    const sub = Linking.addEventListener('url', handleUrl);
+    return () => sub.remove();
+  }, [userEmail, isIdle, startFlow]);
 
   const handleSignIn = async () => {
     try {
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: false });
       const userInfo = await GoogleSignin.signIn();
-      const tokens = await GoogleSignin.getTokens();
-      setAccessToken(tokens.accessToken);
       setUserEmail(userInfo.user.email);
     } catch (err) {
       if (err.code !== statusCodes.SIGN_IN_CANCELLED) {
@@ -58,28 +74,23 @@ export default function HomeScreen({ navigation }) {
 
   const handleSignOut = async () => {
     await GoogleSignin.signOut();
-    setAccessToken(null);
     setUserEmail(null);
     reset();
   };
 
-  const isActive =
-    accessToken &&
-    state.voiceState !== VOICE_STATE.IDLE &&
-    state.voiceState !== VOICE_STATE.DONE &&
-    state.voiceState !== VOICE_STATE.ERROR;
-
-  if (!accessToken) {
+  if (!userEmail) {
     return (
       <View style={styles.container}>
-        <Text style={styles.title}>VoiceMail</Text>
-        <Text style={styles.subtitle}>Gmail per Stimme – freihändig</Text>
-        <GoogleSigninButton
-          size={GoogleSigninButton.Size.Wide}
-          color={GoogleSigninButton.Color.Dark}
-          onPress={handleSignIn}
-          style={styles.signInButton}
-        />
+        <View style={styles.loginBox}>
+          <Text style={styles.title}>VoiceMail</Text>
+          <Text style={styles.subtitle}>Gmail freihändig — fürs Auto</Text>
+          <GoogleSigninButton
+            size={GoogleSigninButton.Size.Wide}
+            color={GoogleSigninButton.Color.Dark}
+            onPress={handleSignIn}
+            style={styles.signInButton}
+          />
+        </View>
       </View>
     );
   }
@@ -98,15 +109,24 @@ export default function HomeScreen({ navigation }) {
       <View style={styles.main}>
         <StatusBanner voiceState={state.voiceState} error={state.error} />
 
-        <View style={styles.buttonArea}>
-          <VoiceButton onPress={state.voiceState === VOICE_STATE.IDLE || state.voiceState === VOICE_STATE.DONE || state.voiceState === VOICE_STATE.ERROR ? startFlow : () => {}} isActive={!!isActive} />
-        </View>
+        <VoiceButton
+          onPress={isActive ? stopFlow : startFlow}
+          isActive={isActive}
+        />
 
-        <View style={styles.hints}>
-          <Text style={styles.hintText}>„Mails von heute"</Text>
-          <Text style={styles.hintText}>„Mails von gestern"</Text>
-          <Text style={styles.hintText}>„Mails von Peter"</Text>
-        </View>
+        {isIdle && (
+          <View style={styles.hints}>
+            <Text style={styles.hintTitle}>Mögliche Befehle</Text>
+            <Text style={styles.hintText}>„Mails von heute"</Text>
+            <Text style={styles.hintText}>„Mails von gestern"</Text>
+            <Text style={styles.hintText}>„Mails von Peter"</Text>
+            <Text style={styles.hintText}>„Mails zum Thema Planung"</Text>
+          </View>
+        )}
+
+        {isActive && (
+          <Text style={styles.stopHint}>Tippen zum Stoppen</Text>
+        )}
       </View>
 
       {state.emails.length > 0 && (
@@ -133,6 +153,29 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
+  loginBox: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 16,
+    paddingHorizontal: 40,
+  },
+  title: {
+    color: COLORS.text,
+    fontSize: 44,
+    fontWeight: '700',
+    letterSpacing: -1,
+  },
+  subtitle: {
+    color: COLORS.subtext,
+    fontSize: 16,
+    marginBottom: 32,
+    textAlign: 'center',
+  },
+  signInButton: {
+    width: 240,
+    height: 56,
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -156,39 +199,28 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 40,
-  },
-  title: {
-    color: COLORS.text,
-    fontSize: 42,
-    fontWeight: '700',
-    letterSpacing: -1,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  subtitle: {
-    color: COLORS.subtext,
-    fontSize: 16,
-    marginBottom: 48,
-    textAlign: 'center',
-  },
-  signInButton: {
-    width: 240,
-    height: 56,
-  },
-  buttonArea: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 180,
+    gap: 44,
   },
   hints: {
-    gap: 8,
     alignItems: 'center',
+    gap: 6,
+  },
+  hintTitle: {
+    color: COLORS.subtext,
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 4,
   },
   hintText: {
     color: COLORS.subtext,
-    fontSize: 14,
+    fontSize: 15,
     fontStyle: 'italic',
+  },
+  stopHint: {
+    color: COLORS.subtext,
+    fontSize: 13,
   },
   listButton: {
     marginHorizontal: 20,

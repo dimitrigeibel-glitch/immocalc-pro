@@ -4,29 +4,34 @@ import { COLORS } from '@constants/colors';
 
 export default function VoiceButton({ onPress, isActive }) {
   const pulse = useRef(new Animated.Value(1)).current;
+  const animation = useRef(null);
 
   useEffect(() => {
     if (isActive) {
-      Animated.loop(
+      animation.current = Animated.loop(
         Animated.sequence([
-          Animated.timing(pulse, { toValue: 1.12, duration: 700, useNativeDriver: true }),
-          Animated.timing(pulse, { toValue: 1, duration: 700, useNativeDriver: true }),
+          Animated.timing(pulse, { toValue: 1.1, duration: 600, useNativeDriver: true }),
+          Animated.timing(pulse, { toValue: 1, duration: 600, useNativeDriver: true }),
         ])
-      ).start();
+      );
+      animation.current.start();
     } else {
-      pulse.stopAnimation();
+      animation.current?.stop();
       Animated.timing(pulse, { toValue: 1, duration: 200, useNativeDriver: true }).start();
     }
   }, [isActive, pulse]);
 
+  const icon = isActive ? '⏹' : '▶';
+  const bgColor = isActive ? COLORS.primaryDim : COLORS.primary;
+
   return (
     <Animated.View style={{ transform: [{ scale: pulse }] }}>
       <TouchableOpacity
-        style={[styles.button, isActive && styles.active]}
+        style={[styles.button, { backgroundColor: bgColor }]}
         onPress={onPress}
-        activeOpacity={0.8}
+        activeOpacity={0.75}
       >
-        <Animated.Text style={styles.icon}>{isActive ? '🎙' : '▶'}</Animated.Text>
+        <Animated.Text style={styles.icon}>{icon}</Animated.Text>
       </TouchableOpacity>
     </Animated.View>
   );
@@ -37,17 +42,13 @@ const styles = StyleSheet.create({
     width: 140,
     height: 140,
     borderRadius: 70,
-    backgroundColor: COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 8,
     shadowColor: COLORS.primary,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 12,
-  },
-  active: {
-    backgroundColor: COLORS.primaryDim,
+    shadowOpacity: 0.45,
+    shadowRadius: 14,
+    elevation: 8,
   },
   icon: {
     fontSize: 52,

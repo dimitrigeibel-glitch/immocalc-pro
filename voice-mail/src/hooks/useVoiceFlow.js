@@ -1,7 +1,8 @@
-import { useReducer, useCallback } from 'react';
+import { useReducer, useCallback, useRef } from 'react';
 import * as GmailService from '@services/GmailService';
 import * as ClaudeService from '@services/ClaudeService';
 import * as SpeechService from '@services/SpeechService';
+import { getValidToken } from '@services/TokenService';
 
 export const VOICE_STATE = {
   IDLE: 'IDLE',
@@ -50,66 +51,94 @@ function reducer(state, action) {
   }
 }
 
-export function useVoiceFlow(accessToken) {
+export function useVoiceFlow() {
   const [state, dispatch] = useReducer(reducer, INITIAL);
+  // Each startFlow call increments this. Async chains check it to detect cancellation.
+  const sessionRef = useRef(0);
 
   const setState = (s) => dispatch({ type: 'SET_STATE', state: s });
 
+  const stopFlow = useCallback(() => {
+    sessionRef.current++;
+    SpeechService.stopSpeaking();
+    dispatch({ type: 'SET_STATE', state: VOICE_STATE.IDLE });
+  }, []);
+
   const startFlow = useCallback(async () => {
-    if (!accessToken) {
-      await SpeechService.speak('Bitte zuerst mit Google anmelden.');
-      return;
-    }
+    const sessionId = ++sessionRef.current;
+    const alive = () => sessionRef.current === sessionId;
 
     try {
       setState(VOICE_STATE.LISTENING);
       await SpeechService.speak('Welche Mails möchtest du hören?');
+      if (!alive()) return;
+
       const transcript = await SpeechService.listenOnce('de-AT', 10000);
+      if (!alive()) return;
+
       const { intent, filters } = SpeechService.parseVoiceCommand(transcript);
 
       if (intent !== 'FILTER' && intent !== 'CONFIRM') {
         await SpeechService.speak(
           'Das habe ich nicht verstanden. Sag zum Beispiel: Mails von heute.'
         );
-        setState(VOICE_STATE.IDLE);
+        if (alive()) setState(VOICE_STATE.IDLE);
         return;
       }
 
       setState(VOICE_STATE.LOADING);
       await SpeechService.speak('Einen Moment, ich lade deine Mails…');
-      const emails = await GmailService.fetchEmails(accessToken, filters ?? {});
+      if (!alive()) return;
+
+      // Always fetch a fresh token — handles expiry after 1h automatically
+      const token = await getValidToken();
+      if (!alive()) return;
+
+      const emails = await GmailService.fetchEmails(token, filters ?? {});
+      if (!alive()) return;
+
       dispatch({ type: 'SET_EMAILS', emails });
 
       if (!emails.length) {
         await SpeechService.speak('Ich habe keine passenden Mails gefunden.');
-        setState(VOICE_STATE.IDLE);
+        if (alive()) setState(VOICE_STATE.IDLE);
         return;
       }
 
       const count = emails.length;
-      await SpeechService.speak(
-        `Ich habe ${count} Mail${count > 1 ? 's' : ''} gefunden.`
-      );
+      await SpeechService.speak(`Ich habe ${count} Mail${count > 1 ? 's' : ''} gefunden.`);
+      if (!alive()) return;
 
-      await iterateEmails(emails, 0, accessToken, dispatch, setState);
+      await iterateEmails(emails, 0, dispatch, setState, alive);
     } catch (err) {
-      const msg = err.message === 'TIMEOUT' ? 'Zeitüberschreitung.' : err.message;
+      if (!alive()) return;
+      const msg =
+        err.message === 'TIMEOUT'
+          ? 'Zeitüberschreitung. Bitte erneut versuchen.'
+          : err.message;
       dispatch({ type: 'SET_ERROR', error: msg });
-      await SpeechService.speak('Es ist ein Fehler aufgetreten. Bitte erneut versuchen.').catch(
+      SpeechService.speak('Es ist ein Fehler aufgetreten. Bitte erneut versuchen.').catch(
         () => {}
       );
     }
-  }, [accessToken]);
+  }, []);
 
-  const reset = useCallback(() => dispatch({ type: 'RESET' }), []);
+  const reset = useCallback(() => {
+    sessionRef.current++;
+    dispatch({ type: 'RESET' });
+  }, []);
 
-  return { state, startFlow, reset };
+  return { state, startFlow, stopFlow, reset };
 }
 
-async function iterateEmails(emails, index, accessToken, dispatch, setState) {
+// --- Private helpers below ---
+
+async function iterateEmails(emails, index, dispatch, setState, alive) {
+  if (!alive()) return;
+
   if (index >= emails.length) {
     await SpeechService.speak('Das waren alle Mails. Auf Wiederhören!');
-    setState(VOICE_STATE.DONE);
+    if (alive()) setState(VOICE_STATE.DONE);
     return;
   }
 
@@ -119,122 +148,163 @@ async function iterateEmails(emails, index, accessToken, dispatch, setState) {
 
   const sender = GmailService.extractSenderName(email.from);
   await SpeechService.speak(`Von ${sender}, Betreff: ${email.subject}. Vorlesen?`);
+  if (!alive()) return;
 
   setState(VOICE_STATE.CONFIRMING);
 
-  let response, command;
+  let command;
   try {
-    response = await SpeechService.listenOnce('de-AT', 7000);
+    const response = await SpeechService.listenOnce('de-AT', 7000);
+    if (!alive()) return;
     command = SpeechService.parseVoiceCommand(response);
   } catch {
-    await SpeechService.speak('Ich habe dich nicht verstanden. Weiter zur nächsten Mail.');
-    await iterateEmails(emails, index + 1, accessToken, dispatch, setState);
-    return;
+    if (!alive()) return;
+    // On timeout: retry once with a prompt, then skip
+    await SpeechService.speak('Nochmal: Vorlesen?');
+    try {
+      const retry = await SpeechService.listenOnce('de-AT', 6000);
+      if (!alive()) return;
+      command = SpeechService.parseVoiceCommand(retry);
+    } catch {
+      if (!alive()) return;
+      await SpeechService.speak('Okay, weiter.');
+      await iterateEmails(emails, index + 1, dispatch, setState, alive);
+      return;
+    }
   }
 
   if (command.intent === 'CONFIRM') {
-    await handleReadEmail(emails, index, email, accessToken, dispatch, setState);
+    await handleReadEmail(emails, index, email, dispatch, setState, alive);
   } else if (command.intent === 'NEXT') {
-    await iterateEmails(emails, index + 1, accessToken, dispatch, setState);
+    await iterateEmails(emails, index + 1, dispatch, setState, alive);
   } else if (command.intent === 'STOP') {
     await SpeechService.speak('Okay, ich beende. Auf Wiederhören!');
-    setState(VOICE_STATE.DONE);
+    if (alive()) setState(VOICE_STATE.DONE);
   } else {
     await SpeechService.speak('Vorlesen, weiter, oder fertig?');
-    await iterateEmails(emails, index, accessToken, dispatch, setState);
+    await iterateEmails(emails, index, dispatch, setState, alive);
   }
 }
 
-async function handleReadEmail(emails, index, email, accessToken, dispatch, setState) {
+async function handleReadEmail(emails, index, email, dispatch, setState, alive) {
+  if (!alive()) return;
+
   setState(VOICE_STATE.SUMMARIZING);
   await SpeechService.speak('Ich fasse zusammen…');
+  if (!alive()) return;
 
   const summary = await ClaudeService.summarizeEmail(email.body, email.from, email.subject);
-  dispatch({ type: 'SET_SUMMARY', summary });
+  if (!alive()) return;
 
+  dispatch({ type: 'SET_SUMMARY', summary });
   setState(VOICE_STATE.READING);
   await SpeechService.speak(summary);
+  if (!alive()) return;
+
   await SpeechService.speak('Vollständig vorlesen, antworten, oder weiter?');
+  if (!alive()) return;
 
   setState(VOICE_STATE.CONFIRMING);
 
-  let action, command;
+  let command;
   try {
-    action = await SpeechService.listenOnce('de-AT', 7000);
+    const action = await SpeechService.listenOnce('de-AT', 7000);
+    if (!alive()) return;
     command = SpeechService.parseVoiceCommand(action);
   } catch {
-    await iterateEmails(emails, index + 1, accessToken, dispatch, setState);
+    if (!alive()) return;
+    await iterateEmails(emails, index + 1, dispatch, setState, alive);
     return;
   }
 
   if (command.intent === 'READ_FULL') {
     setState(VOICE_STATE.READING);
     await SpeechService.speak(email.body);
+    if (!alive()) return;
     await SpeechService.speak('Antworten oder weiter?');
+    if (!alive()) return;
     setState(VOICE_STATE.CONFIRMING);
     try {
       const next = await SpeechService.listenOnce('de-AT', 7000);
-      const nextCmd = SpeechService.parseVoiceCommand(next);
-      if (nextCmd.intent === 'REPLY') {
-        await handleReply(emails, index, email, accessToken, dispatch, setState);
+      if (!alive()) return;
+      if (SpeechService.parseVoiceCommand(next).intent === 'REPLY') {
+        await handleReply(emails, index, email, dispatch, setState, alive);
         return;
       }
     } catch {}
-    await iterateEmails(emails, index + 1, accessToken, dispatch, setState);
+    await iterateEmails(emails, index + 1, dispatch, setState, alive);
   } else if (command.intent === 'REPLY') {
-    await handleReply(emails, index, email, accessToken, dispatch, setState);
+    await handleReply(emails, index, email, dispatch, setState, alive);
   } else {
-    await iterateEmails(emails, index + 1, accessToken, dispatch, setState);
+    await iterateEmails(emails, index + 1, dispatch, setState, alive);
   }
 }
 
-async function handleReply(emails, index, email, accessToken, dispatch, setState) {
+async function handleReply(emails, index, email, dispatch, setState, alive) {
+  if (!alive()) return;
+
   setState(VOICE_STATE.REPLY_PROMPT);
   await SpeechService.speak('Okay, ich nehme deine Antwort auf. Bitte sprich jetzt.');
+  if (!alive()) return;
 
   setState(VOICE_STATE.RECORDING);
   let rawDictation;
   try {
     rawDictation = await SpeechService.listenOnce('de-AT', 30000);
+    if (!alive()) return;
   } catch {
+    if (!alive()) return;
     await SpeechService.speak('Aufnahme fehlgeschlagen. Ich überspringe diese Mail.');
-    await iterateEmails(emails, index + 1, accessToken, dispatch, setState);
+    await iterateEmails(emails, index + 1, dispatch, setState, alive);
     return;
   }
 
   setState(VOICE_STATE.CLEANING);
   await SpeechService.speak('Ich verbessere deine Antwort…');
-  const cleanReply = await ClaudeService.cleanupDictation(rawDictation);
-  dispatch({ type: 'SET_REPLY', reply: cleanReply });
+  if (!alive()) return;
 
+  const cleanReply = await ClaudeService.cleanupDictation(rawDictation);
+  if (!alive()) return;
+
+  dispatch({ type: 'SET_REPLY', reply: cleanReply });
   setState(VOICE_STATE.REVIEW);
   await SpeechService.speak('So klingt deine Antwort:');
+  if (!alive()) return;
   await SpeechService.speak(cleanReply);
+  if (!alive()) return;
   await SpeechService.speak('Absenden?');
+  if (!alive()) return;
 
   setState(VOICE_STATE.CONFIRMING);
-  let confirm, confirmCmd;
+  let confirmCmd;
   try {
-    confirm = await SpeechService.listenOnce('de-AT', 7000);
+    const confirm = await SpeechService.listenOnce('de-AT', 7000);
+    if (!alive()) return;
     confirmCmd = SpeechService.parseVoiceCommand(confirm);
   } catch {
+    if (!alive()) return;
     await SpeechService.speak('Antwort verworfen.');
-    await iterateEmails(emails, index + 1, accessToken, dispatch, setState);
+    await iterateEmails(emails, index + 1, dispatch, setState, alive);
     return;
   }
 
   if (confirmCmd.intent === 'SEND' || confirmCmd.intent === 'CONFIRM') {
     setState(VOICE_STATE.SENDING);
-    await GmailService.sendReply(accessToken, {
+    // Fresh token for send — may have been a long session
+    const token = await getValidToken();
+    if (!alive()) return;
+    await GmailService.sendReply(token, {
       threadId: email.threadId,
       to: email.from,
       subject: email.subject,
       body: cleanReply,
     });
+    if (!alive()) return;
     await SpeechService.speak('Antwort wurde gesendet.');
   } else {
     await SpeechService.speak('Antwort verworfen.');
   }
 
-  await iterateEmails(emails, index + 1, accessToken, dispatch, setState);
+  if (!alive()) return;
+  await iterateEmails(emails, index + 1, dispatch, setState, alive);
 }

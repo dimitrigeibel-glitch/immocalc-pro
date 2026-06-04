@@ -15,6 +15,13 @@ export default {
         'VoiceMail benötigt Spracherkennung, um deine E-Mails per Stimme zu steuern.',
       NSMicrophoneUsageDescription:
         'VoiceMail benötigt das Mikrofon, um deine Antworten aufzunehmen.',
+      // Enables "Add to Siri" / Shortcuts integration via voicemail://start URL
+      CFBundleURLTypes: [
+        {
+          CFBundleURLSchemes: ['voicemail'],
+          CFBundleURLName: 'com.dimitrigeibel.voicemail',
+        },
+      ],
     },
   },
   plugins: [
