@@ -12,6 +12,7 @@ import { useVoiceFlow, VOICE_STATE } from '@hooks/useVoiceFlow';
 import { useAudioSession } from '@hooks/useAudioSession';
 import VoiceButton from '@components/VoiceButton';
 import StatusBanner from '@components/StatusBanner';
+import QuickFilters from '@components/QuickFilters';
 import { COLORS } from '@constants/colors';
 
 export default function HomeScreen({ navigation }) {
@@ -19,7 +20,7 @@ export default function HomeScreen({ navigation }) {
   useAudioSession();
 
   const [userEmail, setUserEmail] = useState(null);
-  const { state, startFlow, stopFlow, reset } = useVoiceFlow();
+  const { state, startFlow, quickStart, stopFlow, reset } = useVoiceFlow();
 
   const isIdle =
     state.voiceState === VOICE_STATE.IDLE ||
@@ -28,7 +29,15 @@ export default function HomeScreen({ navigation }) {
 
   const isActive = !isIdle;
 
-  // Google Sign-In setup
+  // If a token auth error occurs, sign the user out so they see the sign-in screen
+  useEffect(() => {
+    if (state.authError) {
+      GoogleSignin.signOut().catch(() => {});
+      setUserEmail(null);
+      reset();
+    }
+  }, [state.authError, reset]);
+
   useEffect(() => {
     GoogleSignin.configure({
       webClientId: Constants.expoConfig.extra.GOOGLE_WEB_CLIENT_ID,
@@ -45,17 +54,15 @@ export default function HomeScreen({ navigation }) {
       .catch(() => {});
   }, []);
 
-  // Deep link handler: voicemail://start triggers the flow
-  // Set up an iOS Shortcut with "Open URL: voicemail://start" to use with Siri.
+  // Deep link: voicemail://start → auto-start flow
+  // Create an iOS Shortcut: "URL öffnen: voicemail://start" → Siri-Befehl "Mails vorlesen"
   useEffect(() => {
     const handleUrl = ({ url }) => {
       if (url?.includes('start') && userEmail && isIdle) startFlow();
     };
-
     Linking.getInitialURL().then((url) => {
       if (url?.includes('start') && userEmail && isIdle) startFlow();
     });
-
     const sub = Linking.addEventListener('url', handleUrl);
     return () => sub.remove();
   }, [userEmail, isIdle, startFlow]);
@@ -98,33 +105,36 @@ export default function HomeScreen({ navigation }) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.accountText} numberOfLines={1}>
-          {userEmail}
-        </Text>
+        <Text style={styles.accountText} numberOfLines={1}>{userEmail}</Text>
         <TouchableOpacity onPress={handleSignOut}>
           <Text style={styles.signOutText}>Abmelden</Text>
         </TouchableOpacity>
       </View>
 
       <View style={styles.main}>
-        <StatusBanner voiceState={state.voiceState} error={state.error} />
+        <StatusBanner
+          voiceState={state.voiceState}
+          error={state.error}
+          currentIndex={state.currentIndex}
+          emailCount={state.emailCount}
+        />
 
         <VoiceButton
           onPress={isActive ? stopFlow : startFlow}
           isActive={isActive}
         />
 
-        {isIdle && (
-          <View style={styles.hints}>
-            <Text style={styles.hintTitle}>Mögliche Befehle</Text>
-            <Text style={styles.hintText}>„Mails von heute"</Text>
-            <Text style={styles.hintText}>„Mails von gestern"</Text>
-            <Text style={styles.hintText}>„Mails von Peter"</Text>
-            <Text style={styles.hintText}>„Mails zum Thema Planung"</Text>
+        {isIdle ? (
+          <View style={styles.idleArea}>
+            <QuickFilters onFilter={quickStart} disabled={false} />
+            <View style={styles.hints}>
+              <Text style={styles.hintTitle}>Oder per Sprache</Text>
+              <Text style={styles.hintText}>„Mails von heute"</Text>
+              <Text style={styles.hintText}>„Mails von Peter"</Text>
+              <Text style={styles.hintText}>„Mails zum Thema Planung"</Text>
+            </View>
           </View>
-        )}
-
-        {isActive && (
+        ) : (
           <Text style={styles.stopHint}>Tippen zum Stoppen</Text>
         )}
       </View>
@@ -140,7 +150,7 @@ export default function HomeScreen({ navigation }) {
           }
         >
           <Text style={styles.listButtonText}>
-            {state.emails.length} Mails anzeigen
+            {state.emailCount} Mails anzeigen
           </Text>
         </TouchableOpacity>
       )}
@@ -201,6 +211,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 44,
   },
+  idleArea: {
+    alignItems: 'center',
+    gap: 24,
+  },
   hints: {
     alignItems: 'center',
     gap: 6,
@@ -211,7 +225,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 1,
-    marginBottom: 4,
+    marginBottom: 2,
   },
   hintText: {
     color: COLORS.subtext,
