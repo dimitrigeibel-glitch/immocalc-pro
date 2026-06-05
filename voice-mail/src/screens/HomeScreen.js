@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useKeepAwake } from 'expo-keep-awake';
 import * as Linking from 'expo-linking';
@@ -13,6 +13,7 @@ import { useAudioSession } from '@hooks/useAudioSession';
 import VoiceButton from '@components/VoiceButton';
 import StatusBanner from '@components/StatusBanner';
 import QuickFilters from '@components/QuickFilters';
+import { isConfigured, getProvider, PROVIDERS } from '@services/KeysService';
 import { COLORS } from '@constants/colors';
 
 function _filterLabel(f) {
