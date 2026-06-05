@@ -35,7 +35,7 @@ export const PROVIDERS = {
 };
 
 export async function getProvider() {
-  return (await SecureStore.getItemAsync(KEYS.PROVIDER)) ?? 'claude';
+  return (await SecureStore.getItemAsync(KEYS.PROVIDER)) ?? 'openai';
 }
 
 export async function setProvider(providerId) {

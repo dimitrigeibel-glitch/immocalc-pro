@@ -11,6 +11,7 @@ import HomeScreen from './src/screens/HomeScreen';
 import EmailListScreen from './src/screens/EmailListScreen';
 import EmailDetailScreen from './src/screens/EmailDetailScreen';
 import ApiKeysScreen from './src/screens/ApiKeysScreen';
+import OnboardingScreen from './src/screens/OnboardingScreen';
 
 const Stack = createStackNavigator();
 
@@ -23,6 +24,7 @@ export default function App() {
           screenOptions={{ headerShown: false }}
         >
           <Stack.Screen name="Home" component={HomeScreen} />
+          <Stack.Screen name="Onboarding" component={OnboardingScreen} />
           <Stack.Screen name="EmailList" component={EmailListScreen} />
           <Stack.Screen name="EmailDetail" component={EmailDetailScreen} />
           <Stack.Screen name="ApiKeys" component={ApiKeysScreen} />

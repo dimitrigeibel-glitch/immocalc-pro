@@ -32,16 +32,23 @@ export default function HomeScreen({ navigation }) {
   useAudioSession();
 
   const [userEmail, setUserEmail] = useState(null);
-  const { state, startFlow, quickStart, stopFlow, reset } = useVoiceFlow();
+  const { state, startFlow, quickStart, stopFlow, triggerStopRecording, reset } = useVoiceFlow();
 
+  const isRecording = state.voiceState === VOICE_STATE.RECORDING;
   const isIdle =
     state.voiceState === VOICE_STATE.IDLE ||
     state.voiceState === VOICE_STATE.DONE ||
     state.voiceState === VOICE_STATE.ERROR;
-
   const isActive = !isIdle;
 
-  // If a token auth error occurs, sign the user out so they see the sign-in screen
+  // On first launch: if no AI key configured, show onboarding
+  useEffect(() => {
+    isConfigured().then((configured) => {
+      if (!configured) navigation.replace('Onboarding');
+    });
+  }, [navigation]);
+
+  // If a token auth error occurs, sign the user out
   useEffect(() => {
     if (state.authError) {
       GoogleSignin.signOut().catch(() => {});
@@ -133,8 +140,9 @@ export default function HomeScreen({ navigation }) {
         />
 
         <VoiceButton
-          onPress={isActive ? stopFlow : startFlow}
+          onPress={isRecording ? triggerStopRecording : isActive ? stopFlow : startFlow}
           isActive={isActive}
+          isRecording={isRecording}
         />
 
         {isIdle ? (
@@ -157,7 +165,11 @@ export default function HomeScreen({ navigation }) {
             </View>
           </View>
         ) : (
-          <Text style={styles.stopHint}>Tippen zum Stoppen</Text>
+          {isRecording ? (
+            <Text style={styles.stopHint}>Tippen zum Beenden der Aufnahme</Text>
+          ) : (
+            <Text style={styles.stopHint}>Tippen zum Stoppen</Text>
+          )}
         )}
       </View>
 

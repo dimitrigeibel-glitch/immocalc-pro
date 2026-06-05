@@ -2,9 +2,11 @@ import { useReducer, useCallback, useRef, useEffect } from 'react';
 import * as GmailService from '@services/GmailService';
 import * as ClaudeService from '@services/ClaudeService';
 import * as SpeechService from '@services/SpeechService';
+import * as WhisperService from '@services/WhisperService';
 import * as Haptics from '@services/HapticsService';
 import * as Prefs from '@services/PrefsService';
 import { getValidToken } from '@services/TokenService';
+import { getProvider } from '@services/KeysService';
 
 const MAX_FULL_READ_CHARS = 2000;
 
@@ -66,6 +68,8 @@ function reducer(state, action) {
 export function useVoiceFlow() {
   const [state, dispatch] = useReducer(reducer, INITIAL);
   const sessionRef = useRef(0);
+  // Set by handleReply while recording; called by triggerStopRecording
+  const stopRecordingRef = useRef(null);
 
   useEffect(() => {
     Prefs.getSpeechRate().then((rate) => SpeechService.setSpeechRate(rate));
@@ -79,7 +83,14 @@ export function useVoiceFlow() {
   const stopFlow = useCallback(() => {
     sessionRef.current++;
     SpeechService.stopSpeaking();
+    WhisperService.cancelRecording();
+    _stopRecordingCallback = null;
     dispatch({ type: 'SET_STATE', state: VOICE_STATE.IDLE });
+  }, []);
+
+  // Called by VoiceButton when state === RECORDING — finishes dictation
+  const triggerStopRecording = useCallback(() => {
+    _stopRecordingCallback?.();
   }, []);
 
   const startFlow = useCallback(async () => {
@@ -99,8 +110,11 @@ export function useVoiceFlow() {
     dispatch({ type: 'RESET' });
   }, []);
 
-  return { state, startFlow, quickStart, stopFlow, reset };
+  return { state, startFlow, quickStart, stopFlow, triggerStopRecording, reset };
 }
+
+// Module-level: set by handleReply, called by triggerStopRecording in the hook
+let _stopRecordingCallback = null;
 
 // ─── Top-level flow ───────────────────────────────────────────────────────────
 
@@ -392,20 +406,38 @@ async function handleReply(emails, index, email, dispatch, setState, alive) {
   if (!alive()) return;
 
   setState(VOICE_STATE.REPLY_PROMPT);
-  await SpeechService.speak('Okay, ich nehme deine Antwort auf. Bitte sprich jetzt.');
+
+  const provider = await getProvider();
+  const useWhisper = provider === 'openai';
+
+  if (useWhisper) {
+    await SpeechService.speak('Okay, Aufnahme läuft. Tippe wenn du fertig bist.');
+  } else {
+    await SpeechService.speak('Okay, ich nehme deine Antwort auf. Bitte sprich jetzt.');
+  }
   Haptics.hapticConfirm();
   if (!alive()) return;
 
   setState(VOICE_STATE.RECORDING);
   let rawDictation;
-  try {
-    rawDictation = await SpeechService.listenOnce('de-AT', 30000);
-    if (!alive()) return;
-  } catch {
-    if (!alive()) return;
-    Haptics.hapticError();
-    await SpeechService.speak('Aufnahme fehlgeschlagen. Ich überspringe diese Mail.');
-    await iterateEmails(emails, index + 1, dispatch, setState, alive);
+
+  if (useWhisper) {
+    rawDictation = await _whisperDictate(alive);
+  } else {
+    try {
+      rawDictation = await SpeechService.listenOnce('de-AT', 30000);
+      if (!alive()) return;
+    } catch {
+      rawDictation = null;
+    }
+  }
+
+  if (!rawDictation || !alive()) {
+    if (alive()) {
+      Haptics.hapticError();
+      await SpeechService.speak('Aufnahme fehlgeschlagen. Ich überspringe diese Mail.');
+      await iterateEmails(emails, index + 1, dispatch, setState, alive);
+    }
     return;
   }
 
@@ -475,6 +507,41 @@ async function handleReply(emails, index, email, dispatch, setState, alive) {
 
   if (!alive()) return;
   await iterateEmails(emails, index + 1, dispatch, setState, alive);
+}
+
+// ─── Whisper dictation ────────────────────────────────────────────────────────
+
+// Starts Whisper recording; resolves when user taps stop or after 90s auto-stop.
+// Returns the transcribed text, or null if aborted/failed.
+async function _whisperDictate(alive) {
+  const AUTO_STOP_MS = 90000;
+
+  try {
+    await WhisperService.startRecording();
+  } catch {
+    return null;
+  }
+
+  return new Promise((resolve) => {
+    let settled = false;
+
+    const finish = async () => {
+      if (settled) return;
+      settled = true;
+      _stopRecordingCallback = null;
+      clearTimeout(timer);
+      try {
+        const text = await WhisperService.stopAndTranscribe();
+        resolve(alive() ? text : null);
+      } catch {
+        resolve(null);
+      }
+    };
+
+    _stopRecordingCallback = finish;
+
+    const timer = setTimeout(finish, AUTO_STOP_MS);
+  });
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

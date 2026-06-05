@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { TouchableOpacity, StyleSheet, Animated } from 'react-native';
 import { COLORS } from '@constants/colors';
 
-export default function VoiceButton({ onPress, isActive }) {
+export default function VoiceButton({ onPress, isActive, isRecording }) {
   const pulse = useRef(new Animated.Value(1)).current;
   const animation = useRef(null);
 
@@ -21,8 +21,8 @@ export default function VoiceButton({ onPress, isActive }) {
     }
   }, [isActive, pulse]);
 
-  const icon = isActive ? '⏹' : '▶';
-  const bgColor = isActive ? COLORS.primaryDim : COLORS.primary;
+  const icon = isRecording ? '🔴' : isActive ? '⏹' : '▶';
+  const bgColor = isRecording ? COLORS.error : isActive ? COLORS.primaryDim : COLORS.primary;
 
   return (
     <Animated.View style={{ transform: [{ scale: pulse }] }}>
