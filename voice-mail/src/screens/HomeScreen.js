@@ -15,6 +15,17 @@ import StatusBanner from '@components/StatusBanner';
 import QuickFilters from '@components/QuickFilters';
 import { COLORS } from '@constants/colors';
 
+function _filterLabel(f) {
+  if (!f) return '';
+  if (f.unreadOnly && f.timeFilter === 'heute') return 'Ungelesen von heute';
+  if (f.unreadOnly) return 'Ungelesene Mails';
+  if (f.timeFilter === 'heute') return 'Mails von heute';
+  if (f.timeFilter === 'gestern') return 'Mails von gestern';
+  if (f.sender) return `Mails von ${f.sender}`;
+  if (f.keyword) return `Mails: ${f.keyword}`;
+  return 'Alle Mails';
+}
+
 export default function HomeScreen({ navigation }) {
   useKeepAwake();
   useAudioSession();
@@ -45,6 +56,7 @@ export default function HomeScreen({ navigation }) {
       scopes: [
         'https://www.googleapis.com/auth/gmail.readonly',
         'https://www.googleapis.com/auth/gmail.send',
+        'https://www.googleapis.com/auth/gmail.modify',
       ],
       offlineAccess: false,
     });
@@ -127,11 +139,20 @@ export default function HomeScreen({ navigation }) {
         {isIdle ? (
           <View style={styles.idleArea}>
             <QuickFilters onFilter={quickStart} disabled={false} />
+            {state.lastFilter && (
+              <TouchableOpacity
+                style={styles.lastFilterBtn}
+                onPress={() => quickStart(state.lastFilter)}
+              >
+                <Text style={styles.lastFilterLabel}>Zuletzt:</Text>
+                <Text style={styles.lastFilterText}>{_filterLabel(state.lastFilter)}</Text>
+              </TouchableOpacity>
+            )}
             <View style={styles.hints}>
               <Text style={styles.hintTitle}>Oder per Sprache</Text>
               <Text style={styles.hintText}>„Mails von heute"</Text>
               <Text style={styles.hintText}>„Mails von Peter"</Text>
-              <Text style={styles.hintText}>„Mails zum Thema Planung"</Text>
+              <Text style={styles.hintText}>„Schneller" / „Langsamer"</Text>
             </View>
           </View>
         ) : (
@@ -235,6 +256,24 @@ const styles = StyleSheet.create({
   stopHint: {
     color: COLORS.subtext,
     fontSize: 13,
+  },
+  lastFilterBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: COLORS.surfaceHigh,
+    borderRadius: 20,
+  },
+  lastFilterLabel: {
+    color: COLORS.subtext,
+    fontSize: 13,
+  },
+  lastFilterText: {
+    color: COLORS.text,
+    fontSize: 13,
+    fontWeight: '600',
   },
   listButton: {
     marginHorizontal: 20,

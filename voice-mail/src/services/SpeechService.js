@@ -2,6 +2,21 @@ import * as Speech from 'expo-speech';
 import { ExpoSpeechRecognitionModule } from 'expo-speech-recognition';
 import { Audio } from 'expo-av';
 
+// Module-level rate — persisted externally via PrefsService
+let _rate = 0.9;
+
+export function getSpeechRate() {
+  return _rate;
+}
+
+export function setSpeechRate(rate) {
+  _rate = Math.max(0.5, Math.min(1.8, rate));
+}
+
+export function adjustSpeechRate(delta) {
+  setSpeechRate(_rate + delta);
+}
+
 export async function configureAudioSession() {
   await Audio.setAudioModeAsync({
     allowsRecordingIOS: true,
@@ -17,7 +32,7 @@ export function speak(text, options = {}) {
     Speech.speak(text, {
       language: 'de-AT',
       pitch: 1.0,
-      rate: 0.9,
+      rate: _rate,
       onDone: resolve,
       onError: reject,
       onStopped: resolve,
@@ -96,18 +111,26 @@ export function parseVoiceCommand(transcript) {
   if (/fertig|beenden|aufhören|schluss/.test(t)) {
     return { intent: 'STOP' };
   }
+  if (/schneller|schnell|faster/.test(t)) {
+    return { intent: 'FASTER' };
+  }
+  if (/langsamer|langsam|slower/.test(t)) {
+    return { intent: 'SLOWER' };
+  }
 
   const heuteMatch = /heute|heutig/.test(t);
   const gesternMatch = /gestern|gestrig/.test(t);
+  const unreadMatch = /ungelesen|unread/.test(t);
   const vonMatch = t.match(/von\s+([a-zäöüß\s]+?)(?:\s+(?:betreff|über|wegen|mit|zum)|$)/i);
   const betreffMatch = t.match(/(?:betreff|über|wegen|zum thema|mit betreff)\s+([a-zäöüß\s]+?)$/i);
   const mailsMatch = /mails?|e-?mails?/.test(t);
 
-  if (heuteMatch || gesternMatch || vonMatch || betreffMatch || mailsMatch) {
+  if (heuteMatch || gesternMatch || unreadMatch || vonMatch || betreffMatch || mailsMatch) {
     return {
       intent: 'FILTER',
       filters: {
         timeFilter: heuteMatch ? 'heute' : gesternMatch ? 'gestern' : null,
+        unreadOnly: unreadMatch || undefined,
         sender: vonMatch?.[1]?.trim() ?? null,
         keyword: betreffMatch?.[1]?.trim() ?? null,
       },

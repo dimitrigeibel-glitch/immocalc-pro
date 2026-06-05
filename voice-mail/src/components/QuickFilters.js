@@ -3,9 +3,10 @@ import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { COLORS } from '@constants/colors';
 
 const FILTERS = [
-  { label: 'Heute',   filters: { timeFilter: 'heute' } },
-  { label: 'Gestern', filters: { timeFilter: 'gestern' } },
-  { label: 'Alle',    filters: {} },
+  { label: 'Heute',     filters: { timeFilter: 'heute' } },
+  { label: 'Gestern',   filters: { timeFilter: 'gestern' } },
+  { label: 'Ungelesen', filters: { unreadOnly: true } },
+  { label: 'Alle',      filters: {} },
 ];
 
 export default function QuickFilters({ onFilter, disabled }) {
@@ -28,10 +29,12 @@ export default function QuickFilters({ onFilter, disabled }) {
 const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 10,
+    justifyContent: 'center',
   },
   chip: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
     paddingVertical: 10,
     backgroundColor: COLORS.surface,
     borderRadius: 20,

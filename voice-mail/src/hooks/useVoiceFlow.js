@@ -1,9 +1,13 @@
-import { useReducer, useCallback, useRef } from 'react';
+import { useReducer, useCallback, useRef, useEffect } from 'react';
 import * as GmailService from '@services/GmailService';
 import * as ClaudeService from '@services/ClaudeService';
 import * as SpeechService from '@services/SpeechService';
 import * as Haptics from '@services/HapticsService';
+import * as Prefs from '@services/PrefsService';
 import { getValidToken } from '@services/TokenService';
+
+// Long emails are truncated for "vollständig vorlesen" to keep drives sane
+const MAX_FULL_READ_CHARS = 2000;
 
 export const VOICE_STATE = {
   IDLE: 'IDLE',
@@ -31,6 +35,7 @@ const INITIAL = {
   pendingReply: null,
   error: null,
   authError: false,
+  lastFilter: null,
 };
 
 function reducer(state, action) {
@@ -45,10 +50,12 @@ function reducer(state, action) {
       return { ...state, currentSummary: action.summary };
     case 'SET_REPLY':
       return { ...state, pendingReply: action.reply };
+    case 'SET_LAST_FILTER':
+      return { ...state, lastFilter: action.filter };
     case 'SET_ERROR':
       return { ...state, voiceState: VOICE_STATE.ERROR, error: action.error, authError: !!action.authError };
     case 'RESET':
-      return INITIAL;
+      return { ...INITIAL, lastFilter: state.lastFilter };
     default:
       return state;
   }
@@ -58,6 +65,14 @@ export function useVoiceFlow() {
   const [state, dispatch] = useReducer(reducer, INITIAL);
   const sessionRef = useRef(0);
 
+  // Load persisted speech rate + last filter on mount
+  useEffect(() => {
+    Prefs.getSpeechRate().then((rate) => SpeechService.setSpeechRate(rate));
+    Prefs.getLastFilter().then((filter) => {
+      if (filter) dispatch({ type: 'SET_LAST_FILTER', filter });
+    });
+  }, []);
+
   const setState = (s) => dispatch({ type: 'SET_STATE', state: s });
 
   const stopFlow = useCallback(() => {
@@ -66,14 +81,12 @@ export function useVoiceFlow() {
     dispatch({ type: 'SET_STATE', state: VOICE_STATE.IDLE });
   }, []);
 
-  // Voice-driven start: asks user what filter to apply
   const startFlow = useCallback(async () => {
     const sessionId = ++sessionRef.current;
     const alive = () => sessionRef.current === sessionId;
     await _runFlow(null, sessionId, alive, dispatch, setState);
   }, []);
 
-  // Tap-driven start: skips the listening step with preset filters
   const quickStart = useCallback(async (filters) => {
     const sessionId = ++sessionRef.current;
     const alive = () => sessionRef.current === sessionId;
@@ -88,14 +101,13 @@ export function useVoiceFlow() {
   return { state, startFlow, quickStart, stopFlow, reset };
 }
 
-// ─── Private flow runner ──────────────────────────────────────────────────────
+// ─── Flow runner ──────────────────────────────────────────────────────────────
 
 async function _runFlow(presetFilters, sessionId, alive, dispatch, setState) {
   try {
     let filters = presetFilters;
 
     if (!filters) {
-      // Voice filter mode
       setState(VOICE_STATE.LISTENING);
       await SpeechService.speak('Welche Mails möchtest du hören?');
       if (!alive()) return;
@@ -112,9 +124,12 @@ async function _runFlow(presetFilters, sessionId, alive, dispatch, setState) {
       filters = cmd.filters ?? {};
     }
 
+    // Persist filter for next session
+    dispatch({ type: 'SET_LAST_FILTER', filter: filters });
+    Prefs.saveLastFilter(filters).catch(() => {});
+
     setState(VOICE_STATE.LOADING);
-    const filterLabel = _filterLabel(filters);
-    await SpeechService.speak(`Ich lade ${filterLabel}…`);
+    await SpeechService.speak(`Ich lade ${_filterLabel(filters)}…`);
     if (!alive()) return;
 
     let token;
@@ -122,7 +137,7 @@ async function _runFlow(presetFilters, sessionId, alive, dispatch, setState) {
       token = await getValidToken();
     } catch {
       if (!alive()) return;
-      dispatch({ type: 'SET_ERROR', error: 'Anmeldung abgelaufen. Bitte erneut anmelden.', authError: true });
+      dispatch({ type: 'SET_ERROR', error: 'Anmeldung abgelaufen.', authError: true });
       Haptics.hapticError();
       SpeechService.speak('Deine Anmeldung ist abgelaufen. Bitte melde dich erneut an.').catch(() => {});
       return;
@@ -140,8 +155,8 @@ async function _runFlow(presetFilters, sessionId, alive, dispatch, setState) {
       return;
     }
 
-    const count = emails.length;
     Haptics.hapticSelect();
+    const count = emails.length;
     await SpeechService.speak(`${count} Mail${count > 1 ? 's' : ''} gefunden.`);
     if (!alive()) return;
 
@@ -159,7 +174,6 @@ async function _runFlow(presetFilters, sessionId, alive, dispatch, setState) {
 
 async function iterateEmails(emails, index, dispatch, setState, alive) {
   if (!alive()) return;
-
   if (index >= emails.length) {
     await SpeechService.speak('Das waren alle Mails. Auf Wiederhören!');
     if (alive()) setState(VOICE_STATE.DONE);
@@ -177,25 +191,43 @@ async function iterateEmails(emails, index, dispatch, setState, alive) {
 
   setState(VOICE_STATE.CONFIRMING);
 
+  // Speed commands are handled inline via a loop so user can adjust before confirming
   let command;
-  try {
-    const response = await SpeechService.listenOnce('de-AT', 7000);
-    if (!alive()) return;
-    command = SpeechService.parseVoiceCommand(response);
-  } catch {
-    if (!alive()) return;
-    // Retry once
-    await SpeechService.speak('Nochmal: Vorlesen?');
+  for (;;) {
     try {
-      const retry = await SpeechService.listenOnce('de-AT', 6000);
+      const response = await SpeechService.listenOnce('de-AT', 7000);
       if (!alive()) return;
-      command = SpeechService.parseVoiceCommand(retry);
+      command = SpeechService.parseVoiceCommand(response);
     } catch {
       if (!alive()) return;
-      await SpeechService.speak('Okay, weiter.');
-      await iterateEmails(emails, index + 1, dispatch, setState, alive);
-      return;
+      await SpeechService.speak('Nochmal: Vorlesen?');
+      try {
+        const retry = await SpeechService.listenOnce('de-AT', 6000);
+        if (!alive()) return;
+        command = SpeechService.parseVoiceCommand(retry);
+      } catch {
+        if (!alive()) return;
+        await SpeechService.speak('Okay, weiter.');
+        await iterateEmails(emails, index + 1, dispatch, setState, alive);
+        return;
+      }
     }
+
+    if (command.intent === 'FASTER') {
+      SpeechService.adjustSpeechRate(0.15);
+      Prefs.saveSpeechRate(SpeechService.getSpeechRate()).catch(() => {});
+      await SpeechService.speak('Schneller. Vorlesen?');
+      if (!alive()) return;
+      continue;
+    }
+    if (command.intent === 'SLOWER') {
+      SpeechService.adjustSpeechRate(-0.15);
+      Prefs.saveSpeechRate(SpeechService.getSpeechRate()).catch(() => {});
+      await SpeechService.speak('Langsamer. Vorlesen?');
+      if (!alive()) return;
+      continue;
+    }
+    break;
   }
 
   if (command.intent === 'CONFIRM') {
@@ -225,6 +257,12 @@ async function handleReadEmail(emails, index, email, dispatch, setState, alive) 
   if (!alive()) return;
 
   dispatch({ type: 'SET_SUMMARY', summary });
+
+  // Mark as read in Gmail (fire-and-forget — don't block the flow on it)
+  getValidToken()
+    .then((token) => GmailService.markAsRead(token, email.id))
+    .catch(() => {});
+
   setState(VOICE_STATE.READING);
   await SpeechService.speak(summary);
   if (!alive()) return;
@@ -233,20 +271,55 @@ async function handleReadEmail(emails, index, email, dispatch, setState, alive) 
   if (!alive()) return;
 
   setState(VOICE_STATE.CONFIRMING);
+
   let command;
-  try {
-    const action = await SpeechService.listenOnce('de-AT', 7000);
-    if (!alive()) return;
-    command = SpeechService.parseVoiceCommand(action);
-  } catch {
-    if (!alive()) return;
-    await iterateEmails(emails, index + 1, dispatch, setState, alive);
-    return;
+  for (;;) {
+    try {
+      const action = await SpeechService.listenOnce('de-AT', 7000);
+      if (!alive()) return;
+      command = SpeechService.parseVoiceCommand(action);
+    } catch {
+      if (!alive()) return;
+      await iterateEmails(emails, index + 1, dispatch, setState, alive);
+      return;
+    }
+
+    if (command.intent === 'FASTER') {
+      SpeechService.adjustSpeechRate(0.15);
+      Prefs.saveSpeechRate(SpeechService.getSpeechRate()).catch(() => {});
+      await SpeechService.speak('Schneller. Vollständig, antworten, oder weiter?');
+      if (!alive()) return;
+      continue;
+    }
+    if (command.intent === 'SLOWER') {
+      SpeechService.adjustSpeechRate(-0.15);
+      Prefs.saveSpeechRate(SpeechService.getSpeechRate()).catch(() => {});
+      await SpeechService.speak('Langsamer. Vollständig, antworten, oder weiter?');
+      if (!alive()) return;
+      continue;
+    }
+    if (command.intent === 'REPEAT') {
+      setState(VOICE_STATE.READING);
+      await SpeechService.speak(summary);
+      if (!alive()) return;
+      await SpeechService.speak('Vollständig vorlesen, antworten, oder weiter?');
+      if (!alive()) return;
+      setState(VOICE_STATE.CONFIRMING);
+      continue;
+    }
+    break;
   }
 
   if (command.intent === 'READ_FULL') {
     setState(VOICE_STATE.READING);
-    await SpeechService.speak(email.body);
+    const body = email.body;
+    const truncated = body.length > MAX_FULL_READ_CHARS;
+    const readBody = truncated ? body.slice(0, MAX_FULL_READ_CHARS) : body;
+    if (truncated) {
+      await SpeechService.speak('Die E-Mail ist lang. Ich lese die ersten zweitausend Zeichen vor.');
+      if (!alive()) return;
+    }
+    await SpeechService.speak(readBody);
     if (!alive()) return;
     await SpeechService.speak('Antworten oder weiter?');
     if (!alive()) return;
@@ -341,6 +414,8 @@ async function handleReply(emails, index, email, dispatch, setState, alive) {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function _filterLabel(filters) {
+  if (filters.unreadOnly && filters.timeFilter === 'heute') return 'ungelesene Mails von heute';
+  if (filters.unreadOnly) return 'ungelesene Mails';
   if (filters.timeFilter === 'heute') return 'Mails von heute';
   if (filters.timeFilter === 'gestern') return 'Mails von gestern';
   if (filters.sender) return `Mails von ${filters.sender}`;

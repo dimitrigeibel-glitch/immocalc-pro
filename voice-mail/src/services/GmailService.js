@@ -15,16 +15,19 @@ async function apiFetch(path, accessToken, options = {}) {
     const err = await res.text();
     throw new Error(`Gmail API ${res.status}: ${err}`);
   }
+  // 204 No Content (e.g. modify response) has no body
+  if (res.status === 204) return null;
   return res.json();
 }
 
-function buildQuery({ timeFilter, sender, keyword } = {}) {
+function buildQuery({ timeFilter, sender, keyword, unreadOnly } = {}) {
   const parts = [];
   if (timeFilter === 'heute') parts.push('after:' + getTodayTimestamp());
   if (timeFilter === 'gestern') {
     parts.push('after:' + getYesterdayTimestamp());
     parts.push('before:' + getTodayTimestamp());
   }
+  if (unreadOnly) parts.push('is:unread');
   if (sender) parts.push(`from:${sender}`);
   if (keyword) parts.push(keyword);
   return parts.join(' ');
@@ -50,6 +53,13 @@ export async function fetchEmails(accessToken, filters = {}) {
     emails.push(...results.map(parseGmailMessage));
   }
   return emails;
+}
+
+export async function markAsRead(accessToken, messageId) {
+  return apiFetch(`/messages/${messageId}/modify`, accessToken, {
+    method: 'POST',
+    body: JSON.stringify({ removeLabelIds: ['UNREAD'] }),
+  });
 }
 
 export async function sendReply(accessToken, { threadId, to, subject, body }) {
@@ -78,6 +88,8 @@ export async function sendReply(accessToken, { threadId, to, subject, body }) {
   });
 }
 
+// ─── Parsing helpers ──────────────────────────────────────────────────────────
+
 function parseGmailMessage(msg) {
   const headers = msg.payload.headers;
   const get = (name) =>
@@ -91,6 +103,7 @@ function parseGmailMessage(msg) {
     date: get('Date'),
     snippet: msg.snippet,
     body: extractBody(msg.payload),
+    isUnread: msg.labelIds?.includes('UNREAD') ?? false,
   };
 }
 
@@ -119,6 +132,8 @@ function extractBody(payload) {
 function stripHtml(html) {
   return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 }
+
+// ─── Timestamp helpers ────────────────────────────────────────────────────────
 
 function getTodayTimestamp() {
   const d = new Date();
