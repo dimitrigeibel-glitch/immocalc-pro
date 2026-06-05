@@ -111,6 +111,9 @@ export function parseVoiceCommand(transcript) {
   if (/fertig|beenden|aufhören|schluss/.test(t)) {
     return { intent: 'STOP' };
   }
+  if (/hilfe|help|befehle|was kann|was geht/.test(t)) {
+    return { intent: 'HELP' };
+  }
   if (/schneller|schnell|faster/.test(t)) {
     return { intent: 'FASTER' };
   }

@@ -12,6 +12,12 @@ function getClient() {
   return _client;
 }
 
+function extractText(message) {
+  const block = message.content.find((b) => b.type === 'text');
+  if (!block) throw new Error('Keine Textantwort von Claude erhalten.');
+  return block.text;
+}
+
 const SUMMARIZE_SYSTEM = `Du bist ein präziser E-Mail-Assistent für deutschsprachige Nutzer (österreichisches Deutsch).
 Deine Aufgaben:
 1. Fasse E-Mails in genau 3 klaren deutschen Sätzen zusammen. Keine Füllwörter.
@@ -52,7 +58,7 @@ export async function summarizeEmail(emailBody, emailFrom, emailSubject) {
     ],
   });
 
-  return message.content[0].text;
+  return extractText(message);
 }
 
 export async function cleanupDictation(rawText) {
@@ -74,5 +80,5 @@ export async function cleanupDictation(rawText) {
     ],
   });
 
-  return message.content[0].text;
+  return extractText(message);
 }

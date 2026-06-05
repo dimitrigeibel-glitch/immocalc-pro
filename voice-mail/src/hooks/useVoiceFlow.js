@@ -6,8 +6,10 @@ import * as Haptics from '@services/HapticsService';
 import * as Prefs from '@services/PrefsService';
 import { getValidToken } from '@services/TokenService';
 
-// Long emails are truncated for "vollständig vorlesen" to keep drives sane
 const MAX_FULL_READ_CHARS = 2000;
+
+const HELP_TEXT =
+  'Sage: Vorlesen, Weiter, Fertig, Vollständig, Antworten, Absenden, Nochmal, Schneller oder Langsamer.';
 
 export const VOICE_STATE = {
   IDLE: 'IDLE',
@@ -65,7 +67,6 @@ export function useVoiceFlow() {
   const [state, dispatch] = useReducer(reducer, INITIAL);
   const sessionRef = useRef(0);
 
-  // Load persisted speech rate + last filter on mount
   useEffect(() => {
     Prefs.getSpeechRate().then((rate) => SpeechService.setSpeechRate(rate));
     Prefs.getLastFilter().then((filter) => {
@@ -84,13 +85,13 @@ export function useVoiceFlow() {
   const startFlow = useCallback(async () => {
     const sessionId = ++sessionRef.current;
     const alive = () => sessionRef.current === sessionId;
-    await _runFlow(null, sessionId, alive, dispatch, setState);
+    await _runFlow(null, alive, dispatch, setState);
   }, []);
 
   const quickStart = useCallback(async (filters) => {
     const sessionId = ++sessionRef.current;
     const alive = () => sessionRef.current === sessionId;
-    await _runFlow(filters, sessionId, alive, dispatch, setState);
+    await _runFlow(filters, alive, dispatch, setState);
   }, []);
 
   const reset = useCallback(() => {
@@ -101,9 +102,9 @@ export function useVoiceFlow() {
   return { state, startFlow, quickStart, stopFlow, reset };
 }
 
-// ─── Flow runner ──────────────────────────────────────────────────────────────
+// ─── Top-level flow ───────────────────────────────────────────────────────────
 
-async function _runFlow(presetFilters, sessionId, alive, dispatch, setState) {
+async function _runFlow(presetFilters, alive, dispatch, setState) {
   try {
     let filters = presetFilters;
 
@@ -115,58 +116,90 @@ async function _runFlow(presetFilters, sessionId, alive, dispatch, setState) {
       const transcript = await SpeechService.listenOnce('de-AT', 10000);
       if (!alive()) return;
 
-      const cmd = SpeechService.parseVoiceCommand(transcript);
-      if (cmd.intent !== 'FILTER' && cmd.intent !== 'CONFIRM') {
-        await SpeechService.speak('Das habe ich nicht verstanden. Sag zum Beispiel: Mails von heute.');
+      const { intent, filters: voiceFilters } = SpeechService.parseVoiceCommand(transcript);
+      if (intent !== 'FILTER' && intent !== 'CONFIRM') {
+        await SpeechService.speak(
+          'Das habe ich nicht verstanden. Sag zum Beispiel: Mails von heute.'
+        );
         if (alive()) setState(VOICE_STATE.IDLE);
         return;
       }
-      filters = cmd.filters ?? {};
+      filters = voiceFilters ?? {};
     }
 
-    // Persist filter for next session
-    dispatch({ type: 'SET_LAST_FILTER', filter: filters });
-    Prefs.saveLastFilter(filters).catch(() => {});
-
-    setState(VOICE_STATE.LOADING);
-    await SpeechService.speak(`Ich lade ${_filterLabel(filters)}…`);
-    if (!alive()) return;
-
-    let token;
-    try {
-      token = await getValidToken();
-    } catch {
-      if (!alive()) return;
-      dispatch({ type: 'SET_ERROR', error: 'Anmeldung abgelaufen.', authError: true });
-      Haptics.hapticError();
-      SpeechService.speak('Deine Anmeldung ist abgelaufen. Bitte melde dich erneut an.').catch(() => {});
-      return;
-    }
-    if (!alive()) return;
-
-    const emails = await GmailService.fetchEmails(token, filters);
-    if (!alive()) return;
-
-    dispatch({ type: 'SET_EMAILS', emails });
-
-    if (!emails.length) {
-      await SpeechService.speak('Ich habe keine passenden Mails gefunden.');
-      if (alive()) setState(VOICE_STATE.IDLE);
-      return;
-    }
-
-    Haptics.hapticSelect();
-    const count = emails.length;
-    await SpeechService.speak(`${count} Mail${count > 1 ? 's' : ''} gefunden.`);
-    if (!alive()) return;
-
-    await iterateEmails(emails, 0, dispatch, setState, alive);
+    await _fetchAndIterate(filters, alive, dispatch, setState);
   } catch (err) {
     if (!alive()) return;
-    const msg = err.message === 'TIMEOUT' ? 'Zeitüberschreitung. Bitte erneut versuchen.' : err.message;
+    const msg =
+      err.message === 'TIMEOUT'
+        ? 'Zeitüberschreitung. Bitte erneut versuchen.'
+        : err.message;
     dispatch({ type: 'SET_ERROR', error: msg });
     Haptics.hapticError();
     SpeechService.speak('Es ist ein Fehler aufgetreten. Bitte erneut versuchen.').catch(() => {});
+  }
+}
+
+async function _fetchAndIterate(filters, alive, dispatch, setState) {
+  dispatch({ type: 'SET_LAST_FILTER', filter: filters });
+  Prefs.saveLastFilter(filters).catch(() => {});
+
+  setState(VOICE_STATE.LOADING);
+  await SpeechService.speak(`Ich lade ${_filterLabel(filters)}…`);
+  if (!alive()) return;
+
+  let token;
+  try {
+    token = await getValidToken();
+  } catch {
+    if (!alive()) return;
+    dispatch({ type: 'SET_ERROR', error: 'Anmeldung abgelaufen.', authError: true });
+    Haptics.hapticError();
+    SpeechService.speak('Deine Anmeldung ist abgelaufen. Bitte melde dich erneut an.').catch(() => {});
+    return;
+  }
+  if (!alive()) return;
+
+  const emails = await GmailService.fetchEmails(token, filters);
+  if (!alive()) return;
+
+  dispatch({ type: 'SET_EMAILS', emails });
+
+  if (!emails.length) {
+    await _handleNoEmails(alive, dispatch, setState);
+    return;
+  }
+
+  Haptics.hapticSelect();
+  const count = emails.length;
+  await SpeechService.speak(`${count} Mail${count > 1 ? 's' : ''} gefunden.`);
+  if (!alive()) return;
+
+  await iterateEmails(emails, 0, dispatch, setState, alive);
+}
+
+// After "no emails found": offer voice retry with new filter
+async function _handleNoEmails(alive, dispatch, setState) {
+  setState(VOICE_STATE.LISTENING);
+  await SpeechService.speak(
+    'Keine Mails gefunden. Welchen Filter möchtest du versuchen?'
+  );
+  if (!alive()) return;
+
+  try {
+    const transcript = await SpeechService.listenOnce('de-AT', 8000);
+    if (!alive()) return;
+    const { intent, filters } = SpeechService.parseVoiceCommand(transcript);
+
+    if (intent === 'FILTER') {
+      await _fetchAndIterate(filters ?? {}, alive, dispatch, setState);
+      return;
+    }
+  } catch {}
+
+  if (alive()) {
+    await SpeechService.speak('Okay, auf Wiederhören.');
+    setState(VOICE_STATE.IDLE);
   }
 }
 
@@ -186,12 +219,17 @@ async function iterateEmails(emails, index, dispatch, setState, alive) {
 
   const sender = GmailService.extractSenderName(email.from);
   const position = emails.length > 1 ? `Mail ${index + 1} von ${emails.length}: ` : '';
-  await SpeechService.speak(`${position}Von ${sender}, Betreff: ${email.subject}. Vorlesen?`);
+  const attachNote =
+    email.attachments.length > 0
+      ? `, mit ${email.attachments.length} Anhang${email.attachments.length > 1 ? 'anhängen' : ''}`
+      : '';
+  await SpeechService.speak(
+    `${position}Von ${sender}, Betreff: ${email.subject}${attachNote}. Vorlesen?`
+  );
   if (!alive()) return;
 
   setState(VOICE_STATE.CONFIRMING);
 
-  // Speed commands are handled inline via a loop so user can adjust before confirming
   let command;
   for (;;) {
     try {
@@ -227,6 +265,11 @@ async function iterateEmails(emails, index, dispatch, setState, alive) {
       if (!alive()) return;
       continue;
     }
+    if (command.intent === 'HELP') {
+      await SpeechService.speak(HELP_TEXT);
+      if (!alive()) return;
+      continue;
+    }
     break;
   }
 
@@ -244,7 +287,7 @@ async function iterateEmails(emails, index, dispatch, setState, alive) {
   }
 }
 
-// ─── Read + reply handlers ────────────────────────────────────────────────────
+// ─── Read email ───────────────────────────────────────────────────────────────
 
 async function handleReadEmail(emails, index, email, dispatch, setState, alive) {
   if (!alive()) return;
@@ -258,9 +301,9 @@ async function handleReadEmail(emails, index, email, dispatch, setState, alive) 
 
   dispatch({ type: 'SET_SUMMARY', summary });
 
-  // Mark as read in Gmail (fire-and-forget — don't block the flow on it)
+  // Mark as read silently in background
   getValidToken()
-    .then((token) => GmailService.markAsRead(token, email.id))
+    .then((t) => GmailService.markAsRead(t, email.id))
     .catch(() => {});
 
   setState(VOICE_STATE.READING);
@@ -269,7 +312,6 @@ async function handleReadEmail(emails, index, email, dispatch, setState, alive) 
 
   await SpeechService.speak('Vollständig vorlesen, antworten, oder weiter?');
   if (!alive()) return;
-
   setState(VOICE_STATE.CONFIRMING);
 
   let command;
@@ -307,14 +349,18 @@ async function handleReadEmail(emails, index, email, dispatch, setState, alive) 
       setState(VOICE_STATE.CONFIRMING);
       continue;
     }
+    if (command.intent === 'HELP') {
+      await SpeechService.speak(HELP_TEXT);
+      if (!alive()) return;
+      continue;
+    }
     break;
   }
 
   if (command.intent === 'READ_FULL') {
     setState(VOICE_STATE.READING);
-    const body = email.body;
-    const truncated = body.length > MAX_FULL_READ_CHARS;
-    const readBody = truncated ? body.slice(0, MAX_FULL_READ_CHARS) : body;
+    const truncated = email.body.length > MAX_FULL_READ_CHARS;
+    const readBody = truncated ? email.body.slice(0, MAX_FULL_READ_CHARS) : email.body;
     if (truncated) {
       await SpeechService.speak('Die E-Mail ist lang. Ich lese die ersten zweitausend Zeichen vor.');
       if (!alive()) return;
@@ -339,6 +385,8 @@ async function handleReadEmail(emails, index, email, dispatch, setState, alive) 
     await iterateEmails(emails, index + 1, dispatch, setState, alive);
   }
 }
+
+// ─── Dictate + send reply ─────────────────────────────────────────────────────
 
 async function handleReply(emails, index, email, dispatch, setState, alive) {
   if (!alive()) return;
@@ -394,15 +442,33 @@ async function handleReply(emails, index, email, dispatch, setState, alive) {
     setState(VOICE_STATE.SENDING);
     const token = await getValidToken();
     if (!alive()) return;
-    await GmailService.sendReply(token, {
-      threadId: email.threadId,
-      to: email.from,
-      subject: email.subject,
-      body: cleanReply,
-    });
-    if (!alive()) return;
-    Haptics.hapticSent();
-    await SpeechService.speak('Antwort wurde gesendet.');
+
+    try {
+      await GmailService.sendReply(token, {
+        threadId: email.threadId,
+        messageId: email.messageId,
+        to: email.from,
+        subject: email.subject,
+        body: cleanReply,
+      });
+      if (!alive()) return;
+      Haptics.hapticSent();
+      await SpeechService.speak('Antwort wurde gesendet.');
+    } catch {
+      if (!alive()) return;
+      // Send failed — save as draft so the dictation is not lost
+      try {
+        await GmailService.saveDraft(token, {
+          threadId: email.threadId,
+          to: email.from,
+          subject: email.subject,
+          body: cleanReply,
+        });
+        await SpeechService.speak('Senden fehlgeschlagen. Ich habe die Antwort als Entwurf gespeichert.');
+      } catch {
+        await SpeechService.speak('Senden fehlgeschlagen. Entwurf konnte nicht gespeichert werden.');
+      }
+    }
   } else {
     await SpeechService.speak('Antwort verworfen.');
   }
