@@ -141,7 +141,7 @@ function parseGmailMessage(msg) {
     subject: get('Subject'),
     date: get('Date'),
     snippet: msg.snippet,
-    body: extractBody(msg.payload),
+    body: truncateBody(extractBody(msg.payload)),
     attachments: detectAttachments(msg.payload),
     isUnread: msg.labelIds?.includes('UNREAD') ?? false,
   };
@@ -184,7 +184,24 @@ function detectAttachments(payload) {
 }
 
 function stripHtml(html) {
-  return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  return html
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Prevent token-limit explosions: cap body sent to AI at 6000 chars
+function truncateBody(text, maxChars = 6000) {
+  if (text.length <= maxChars) return text;
+  return text.slice(0, maxChars) + '\n[… E-Mail gekürzt]';
 }
 
 function getTodayTimestamp() {

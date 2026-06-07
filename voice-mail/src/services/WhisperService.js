@@ -36,28 +36,43 @@ export async function stopAndTranscribe() {
   const apiKey = await getApiKey('openai');
   if (!apiKey) throw new Error('Kein OpenAI-Key konfiguriert.');
 
-  const formData = new FormData();
-  formData.append('file', { uri, type: 'audio/m4a', name: 'recording.m4a' });
-  formData.append('model', 'whisper-1');
-  formData.append('language', 'de');
-  // Prompt hint helps Whisper handle Austrian German and filler words correctly
-  formData.append('prompt', 'Österreichisches Deutsch. E-Mail-Diktat. Ähm, halt, also, na ja.');
+  return _transcribeWithRetry(uri, apiKey);
+}
 
-  const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${apiKey}` },
-    body: formData,
-  });
+// Retry up to 2 times with exponential backoff — audio file stays on disk between attempts
+async function _transcribeWithRetry(uri, apiKey, maxRetries = 2) {
+  let lastError;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    if (attempt > 0) {
+      await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
+    }
+    try {
+      const formData = new FormData();
+      formData.append('file', { uri, type: 'audio/m4a', name: 'recording.m4a' });
+      formData.append('model', 'whisper-1');
+      formData.append('language', 'de');
+      formData.append('prompt', 'Österreichisches Deutsch. E-Mail-Diktat. Ähm, halt, also, na ja.');
 
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Whisper ${res.status}: ${err}`);
+      const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiKey}` },
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const err = await res.text();
+        throw new Error(`Whisper ${res.status}: ${err}`);
+      }
+
+      const data = await res.json();
+      const text = data.text?.trim();
+      if (!text) throw new Error('Whisper hat nichts erkannt.');
+      return text;
+    } catch (err) {
+      lastError = err;
+    }
   }
-
-  const data = await res.json();
-  const text = data.text?.trim();
-  if (!text) throw new Error('Whisper hat nichts erkannt.');
-  return text;
+  throw lastError;
 }
 
 export async function cancelRecording() {

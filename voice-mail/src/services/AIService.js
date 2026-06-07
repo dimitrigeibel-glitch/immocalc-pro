@@ -8,13 +8,19 @@ Fasse E-Mails in genau 3 klaren deutschen Sätzen zusammen, dann liste Aufgaben 
 Format: Zusammenfassung (3 Sätze), dann "Aufgaben:" mit Stichpunkten oder "Keine Aufgaben."
 Die Zusammenfassung wird vorgelesen — formuliere sie flüssig und natürlich klingend.`;
 
+// Extra truncation safety: GmailService already caps at 6000, this is a second guard
+const _truncate = (text, max = 4000) =>
+  text.length <= max ? text : text.slice(0, max) + '\n[… gekürzt]';
+
 const SUMMARIZE_USER = (from, subject, body) =>
-  `Von: ${from}\nBetreff: ${subject}\n\nE-Mail-Text:\n${body}`;
+  `Von: ${from}\nBetreff: ${subject}\n\nE-Mail-Text:\n${_truncate(body)}`;
 
 const CLEANUP_SYSTEM = `Du bist ein deutschsprachiger Schreibassistent.
 Wandle gesprochene Diktate in professionelle, höfliche E-Mail-Antworten um.
 Entferne Füllwörter (ähm, äh, halt, also, ich mein, quasi, gell, na ja, eigentlich, irgendwie).
-Korrigiere Grammatik. Österreichisches Deutsch. Gib NUR den fertigen E-Mail-Text zurück.`;
+Korrigiere Grammatik. Österreichisches Deutsch.
+Füge am Ende immer eine neue Zeile hinzu: "(Gesendet von unterwegs)"
+Gib NUR den fertigen E-Mail-Text zurück.`;
 
 const CLEANUP_USER = (raw) =>
   `Diktat:\n"${raw}"\n\nBitte schreibe daraus eine saubere E-Mail-Antwort:`;

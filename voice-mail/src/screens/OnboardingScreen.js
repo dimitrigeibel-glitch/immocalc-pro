@@ -111,7 +111,8 @@ export default function OnboardingScreen({ navigation }) {
             />
             {error ? <Text style={styles.error}>{error}</Text> : null}
             <Text style={styles.inputHint}>
-              Dein Key verlässt niemals dein iPhone.
+              Dein Key wird verschlüsselt auf deinem iPhone gespeichert.{'\n'}
+              E-Mail-Texte und Diktate werden zur Verarbeitung an OpenAI-Server übertragen.
             </Text>
           </View>
         )}

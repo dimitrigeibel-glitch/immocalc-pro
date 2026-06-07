@@ -22,7 +22,8 @@ export async function configureAudioSession() {
     allowsRecordingIOS: true,
     playsInSilentModeIOS: true,
     staysActiveInBackground: true,
-    interruptionModeIOS: 'doNotMix',
+    // duckOthers: lowers Spotify/Maps volume while speaking, restores after
+    interruptionModeIOS: 'duckOthers',
     shouldDuckAndroid: true,
   });
 }
@@ -46,6 +47,8 @@ export function stopSpeaking() {
 }
 
 export function listenOnce(locale = 'de-AT', timeoutMs = 8000) {
+  // Barge-in: stop any ongoing TTS before opening microphone
+  Speech.stop();
   return new Promise((resolve, reject) => {
     let resolved = false;
 
@@ -84,32 +87,35 @@ export function listenOnce(locale = 'de-AT', timeoutMs = 8000) {
 export function parseVoiceCommand(transcript) {
   const t = (transcript ?? '').toLowerCase().trim();
 
-  if (/^(ja|okay|ok|ja bitte|jep|genau|stimmt|richtig|sicher|bitte)/.test(t)) {
+  // CONFIRM: standard + Austrian dialect (jo, passt, passt scho, na klar, stimmt eh)
+  if (/^(ja|okay|ok|ja bitte|jep|genau|stimmt|richtig|sicher|bitte|jo|jö|passt|passt scho|passt eh|na klar|stimmt eh|ja eh|freilich|eh klar|natürlich)/.test(t)) {
     return { intent: 'CONFIRM' };
   }
-  if (/^(nein|nö|nope|stopp|abbrechen|nicht)/.test(t)) {
+  // REJECT: standard + Austrian (na, na passt ned, nix, lösch das)
+  if (/^(nein|nö|nope|abbrechen|nicht|na$|na passt|nix|passt ned|passt nicht|lösch das|lösch|vergiss|vergiss das)/.test(t)) {
     return { intent: 'REJECT' };
   }
-  if (/weiter|nächste|next|überspringen/.test(t)) {
+  // STOP: stop/finish command — checked before REJECT so "stopp" lands here
+  if (/^stopp$|fertig|beenden|aufhören|schluss|hör auf|bin fertig/.test(t)) {
+    return { intent: 'STOP' };
+  }
+  if (/weiter|nächste|next|überspringen|skip|geh weiter|hup/.test(t)) {
     return { intent: 'NEXT' };
   }
-  if (/zurück|vorherige/.test(t)) {
+  if (/zurück|vorherige|vorige/.test(t)) {
     return { intent: 'PREV' };
   }
-  if (/vollständig|ganzen|alles|komplett|ganz/.test(t)) {
+  if (/vollständig|ganzen|alles|komplett|ganz|ganze mail|ganz vorlesen/.test(t)) {
     return { intent: 'READ_FULL' };
   }
-  if (/antw|reply|schreib|diktier/.test(t)) {
+  if (/antw|reply|schreib|diktier|antworten/.test(t)) {
     return { intent: 'REPLY' };
   }
-  if (/absenden|senden|abschicken|verschicken/.test(t)) {
+  if (/absenden|senden|abschicken|verschicken|schick's|schick das|schicks ab|abschicken/.test(t)) {
     return { intent: 'SEND' };
   }
-  if (/nochmal|wiederholen|wiederhole/.test(t)) {
+  if (/nochmal|wiederholen|wiederhole|nochmals/.test(t)) {
     return { intent: 'REPEAT' };
-  }
-  if (/fertig|beenden|aufhören|schluss/.test(t)) {
-    return { intent: 'STOP' };
   }
   if (/hilfe|help|befehle|was kann|was geht/.test(t)) {
     return { intent: 'HELP' };
