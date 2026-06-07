@@ -174,7 +174,21 @@ async function _fetchAndIterate(filters, alive, dispatch, setState) {
   }
   if (!alive()) return;
 
-  const emails = await GmailService.fetchEmails(token, filters);
+  // Announce if the network is slow so there's no silent dead-air
+  const slowNetTimer = setTimeout(() => {
+    if (alive()) SpeechService.speak('Verbindung ist langsam, einen Moment…').catch(() => {});
+  }, 5000);
+
+  let emails;
+  try {
+    emails = await GmailService.fetchEmails(token, filters);
+  } catch (err) {
+    clearTimeout(slowNetTimer);
+    if (!alive()) return;
+    const isNetworkErr = err.message.includes('Zeitüberschreitung') || err.message.includes('Network') || err.name === 'TypeError';
+    throw isNetworkErr ? new Error('Kein Netz. Bitte fahre in ein Gebiet mit Empfang und versuche es erneut.') : err;
+  }
+  clearTimeout(slowNetTimer);
   if (!alive()) return;
 
   dispatch({ type: 'SET_EMAILS', emails });
@@ -306,11 +320,39 @@ async function iterateEmails(emails, index, dispatch, setState, alive) {
 async function handleReadEmail(emails, index, email, dispatch, setState, alive) {
   if (!alive()) return;
 
+  // Empty body guard — no point summarizing if there's no text
+  if (!email.body || email.body.trim().length < 15) {
+    await SpeechService.speak('Diese Mail hat keinen lesbaren Text. Antworten oder weiter?');
+    if (!alive()) return;
+    setState(VOICE_STATE.CONFIRMING);
+    try {
+      const resp = await SpeechService.listenOnce('de-AT', 7000);
+      if (!alive()) return;
+      if (SpeechService.parseVoiceCommand(resp).intent === 'REPLY') {
+        await handleReply(emails, index, email, dispatch, setState, alive);
+        return;
+      }
+    } catch {}
+    await iterateEmails(emails, index + 1, dispatch, setState, alive);
+    return;
+  }
+
   setState(VOICE_STATE.SUMMARIZING);
   await SpeechService.speak('Ich fasse zusammen…');
   if (!alive()) return;
 
-  const summary = await ClaudeService.summarizeEmail(email.body, email.from, email.subject);
+  let summary;
+  try {
+    summary = await ClaudeService.summarizeEmail(email.body, email.from, email.subject);
+  } catch (err) {
+    if (!alive()) return;
+    if (err.message === 'QUOTA_EXCEEDED') {
+      await SpeechService.speak('Dein OpenAI-Guthaben ist aufgebraucht. Bitte lade es unter platform.openai.com auf.');
+      if (alive()) setState(VOICE_STATE.ERROR);
+      return;
+    }
+    throw err;
+  }
   if (!alive()) return;
 
   dispatch({ type: 'SET_SUMMARY', summary });
@@ -445,7 +487,18 @@ async function handleReply(emails, index, email, dispatch, setState, alive) {
   await SpeechService.speak('Ich verbessere deine Antwort…');
   if (!alive()) return;
 
-  const cleanReply = await ClaudeService.cleanupDictation(rawDictation);
+  let cleanReply;
+  try {
+    cleanReply = await ClaudeService.cleanupDictation(rawDictation);
+  } catch (err) {
+    if (!alive()) return;
+    if (err.message === 'QUOTA_EXCEEDED') {
+      await SpeechService.speak('Dein OpenAI-Guthaben ist aufgebraucht. Bitte lade es unter platform.openai.com auf.');
+      if (alive()) setState(VOICE_STATE.ERROR);
+      return;
+    }
+    throw err;
+  }
   if (!alive()) return;
 
   dispatch({ type: 'SET_REPLY', reply: cleanReply });
@@ -533,7 +586,11 @@ async function _whisperDictate(alive) {
       try {
         const text = await WhisperService.stopAndTranscribe();
         resolve(alive() ? text : null);
-      } catch {
+      } catch (err) {
+        if (err.message === 'KURZE_AUFNAHME') {
+          // Accidental tap — tell user and resolve null so flow can recover
+          if (alive()) SpeechService.speak('Aufnahme zu kurz. Bitte halte den Knopf gedrückt und sprich.').catch(() => {});
+        }
         resolve(null);
       }
     };

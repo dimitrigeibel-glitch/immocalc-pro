@@ -22,6 +22,14 @@ export async function startRecording() {
 export async function stopAndTranscribe() {
   if (!_recording) throw new Error('Keine aktive Aufnahme.');
 
+  // Guard: if recording is < 800ms it's almost certainly silence or an accidental tap
+  const status = await _recording.getStatusAsync();
+  if ((status.durationMillis ?? 0) < 800) {
+    await _recording.stopAndUnloadAsync().catch(() => {});
+    _recording = null;
+    throw new Error('KURZE_AUFNAHME');
+  }
+
   await _recording.stopAndUnloadAsync();
   const uri = _recording.getURI();
   _recording = null;
@@ -60,8 +68,14 @@ async function _transcribeWithRetry(uri, apiKey, maxRetries = 2) {
       });
 
       if (!res.ok) {
-        const err = await res.text();
-        throw new Error(`Whisper ${res.status}: ${err}`);
+        const errText = await res.text();
+        if (res.status === 429) {
+          let errData;
+          try { errData = JSON.parse(errText); } catch {}
+          if (errData?.error?.code === 'insufficient_quota') throw new Error('QUOTA_EXCEEDED');
+          throw new Error('Zu viele Anfragen. Bitte warte kurz.');
+        }
+        throw new Error(`Whisper ${res.status}: ${errText}`);
       }
 
       const data = await res.json();
