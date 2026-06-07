@@ -68,8 +68,6 @@ function reducer(state, action) {
 export function useVoiceFlow() {
   const [state, dispatch] = useReducer(reducer, INITIAL);
   const sessionRef = useRef(0);
-  // Set by handleReply while recording; called by triggerStopRecording
-  const stopRecordingRef = useRef(null);
 
   useEffect(() => {
     Prefs.getSpeechRate().then((rate) => SpeechService.setSpeechRate(rate));
@@ -357,14 +355,14 @@ async function handleReadEmail(emails, index, email, dispatch, setState, alive) 
 
   dispatch({ type: 'SET_SUMMARY', summary });
 
-  // Mark as read silently in background
-  getValidToken()
-    .then((t) => GmailService.markAsRead(t, email.id))
-    .catch(() => {});
-
   setState(VOICE_STATE.READING);
   await SpeechService.speak(summary);
   if (!alive()) return;
+
+  // Mark as read after the summary has actually been heard, not before
+  getValidToken()
+    .then((t) => GmailService.markAsRead(t, email.id))
+    .catch(() => {});
 
   await SpeechService.speak('Vollständig vorlesen, antworten, oder weiter?');
   if (!alive()) return;
@@ -528,11 +526,13 @@ async function handleReply(emails, index, email, dispatch, setState, alive) {
     const token = await getValidToken();
     if (!alive()) return;
 
+    // Reply-To takes priority over From (mailing lists, no-reply addresses)
+    const replyAddress = email.replyTo || email.from;
     try {
       await GmailService.sendReply(token, {
         threadId: email.threadId,
         messageId: email.messageId,
-        to: email.from,
+        to: replyAddress,
         subject: email.subject,
         body: cleanReply,
       });
@@ -545,7 +545,8 @@ async function handleReply(emails, index, email, dispatch, setState, alive) {
       try {
         await GmailService.saveDraft(token, {
           threadId: email.threadId,
-          to: email.from,
+          messageId: email.messageId,
+          to: replyAddress,
           subject: email.subject,
           body: cleanReply,
         });

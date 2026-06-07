@@ -59,10 +59,14 @@ export async function fetchEmails(accessToken, filters = {}, maxResults = 50) {
   const emails = [];
 
   for (const batch of batches) {
-    const results = await Promise.all(
+    const results = await Promise.allSettled(
       batch.map((id) => apiFetch(`/messages/${id}?format=full`, accessToken))
     );
-    emails.push(...results.map(parseGmailMessage));
+    emails.push(
+      ...results
+        .filter((r) => r.status === 'fulfilled' && r.value)
+        .map((r) => parseGmailMessage(r.value))
+    );
   }
   return emails;
 }
@@ -74,13 +78,18 @@ export async function markAsRead(accessToken, messageId) {
   });
 }
 
+// Strip CR/LF from header values to prevent MIME header injection
+function sanitizeHeader(value) {
+  return (value ?? '').replace(/[\r\n]+/g, ' ').trim();
+}
+
 export async function sendReply(accessToken, { threadId, messageId, to, subject, body }) {
-  const replySubject = subject.startsWith('Re: ') ? subject : `Re: ${subject}`;
-  // RFC 5322: In-Reply-To must be the Message-ID of the parent, not the thread ID
-  const inReplyTo = messageId ?? '';
+  const replySubject = sanitizeHeader(subject.startsWith('Re: ') ? subject : `Re: ${subject}`);
+  const safeTo = sanitizeHeader(to);
+  const inReplyTo = sanitizeHeader(messageId ?? '');
 
   const rawEmail = [
-    `To: ${to}`,
+    `To: ${safeTo}`,
     `Subject: ${replySubject}`,
     inReplyTo ? `In-Reply-To: ${inReplyTo}` : '',
     inReplyTo ? `References: ${inReplyTo}` : '',
@@ -104,15 +113,20 @@ export async function sendReply(accessToken, { threadId, messageId, to, subject,
   });
 }
 
-export async function saveDraft(accessToken, { threadId, to, subject, body }) {
+export async function saveDraft(accessToken, { threadId, messageId, to, subject, body }) {
+  const draftSubject = sanitizeHeader(subject.startsWith('Re: ') ? subject : `Re: ${subject}`);
+  const safeTo = sanitizeHeader(to);
+  const inReplyTo = sanitizeHeader(messageId ?? '');
   const rawEmail = [
-    `To: ${to}`,
-    `Subject: ${subject}`,
+    `To: ${safeTo}`,
+    `Subject: ${draftSubject}`,
+    inReplyTo ? `In-Reply-To: ${inReplyTo}` : '',
+    inReplyTo ? `References: ${inReplyTo}` : '',
     'Content-Type: text/plain; charset=utf-8',
     'MIME-Version: 1.0',
     '',
     body,
-  ].join('\r\n');
+  ].filter(Boolean).join('\r\n');
 
   const encoded = Buffer.from(rawEmail)
     .toString('base64')
@@ -133,11 +147,13 @@ function parseGmailMessage(msg) {
   const get = (name) =>
     headers.find((h) => h.name.toLowerCase() === name.toLowerCase())?.value ?? '';
 
+  const replyTo = get('Reply-To');
   return {
     id: msg.id,
     threadId: msg.threadId,
     messageId: get('Message-ID') || get('Message-Id'),
     from: get('From'),
+    replyTo: replyTo || null,
     subject: get('Subject'),
     date: get('Date'),
     snippet: msg.snippet,
@@ -147,20 +163,22 @@ function parseGmailMessage(msg) {
   };
 }
 
+// Gmail uses base64url (- and _ instead of + and /); standard base64 decode may corrupt bodies
+function decodeBase64Url(data) {
+  const base64 = data.replace(/-/g, '+').replace(/_/g, '/');
+  const padded = base64 + '=='.slice(0, (4 - (base64.length % 4)) % 4);
+  return Buffer.from(padded, 'base64').toString('utf-8');
+}
+
 function extractBody(payload) {
   if (payload.body?.data) {
-    return Buffer.from(payload.body.data, 'base64').toString('utf-8');
+    return decodeBase64Url(payload.body.data);
   }
   if (payload.parts) {
     const plain = payload.parts.find((p) => p.mimeType === 'text/plain');
-    if (plain?.body?.data) {
-      return Buffer.from(plain.body.data, 'base64').toString('utf-8');
-    }
+    if (plain?.body?.data) return decodeBase64Url(plain.body.data);
     const html = payload.parts.find((p) => p.mimeType === 'text/html');
-    if (html?.body?.data) {
-      const raw = Buffer.from(html.body.data, 'base64').toString('utf-8');
-      return stripHtml(raw);
-    }
+    if (html?.body?.data) return stripHtml(decodeBase64Url(html.body.data));
     for (const part of payload.parts) {
       const result = extractBody(part);
       if (result) return result;

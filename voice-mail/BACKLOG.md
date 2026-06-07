@@ -41,6 +41,35 @@ Aktuell: TTS stoppt erst wenn listenOnce() aufgerufen wird (einfaches Barge-In b
 
 ---
 
+### Lazy Loading (Metadata-first)
+Aktuell werden bis zu 50 Mails mit `format=full` vorgeladen — Body, HTML und alles.
+Besser: erst Header/Snippet holen (`format=metadata`), Body erst bei „Vorlesen".
+Reduziert Gmail API-Quota und Datenmenge massiv.
+
+**Aufwand:** M  
+**Kontext:** GmailService.fetchEmails + useVoiceFlow._fetchAndIterate müssen aufgeteilt werden.
+
+---
+
+### Voice-Endwort beim Whisper-Diktat
+Aktuell: Aufnahme endet nur per Tap oder nach 90s Timeout — nicht wirklich freihändig.
+Idee: Silence Detection (Audio-Pegel unter Schwellwert für 2s) oder „Fertig" als Stopwort
+parallel zur Whisper-Aufnahme per nativer STT erkennen.
+
+**Aufwand:** M
+
+---
+
+### Sicherheitsregel: Nie direkt an unbekannte Absender
+Wenn ein Absender noch nie vom Nutzer beantwortet wurde (kein Thread-History-Check)
+oder wenn `replyTo` auf eine No-Reply-Adresse zeigt → immer nur Entwurf, nie direktes Senden.
+Erkennung: `no-reply`, `noreply`, `do-not-reply` im Absender-String.
+
+**Aufwand:** S  
+**Wert:** Verhindert peinliche Fehlantworten an Newsletter/Spam/Automaten im Auto.
+
+---
+
 ### App Store / CASA
 - CASA Security Assessment beantragen (Pflicht für gmail.send + gmail.modify in öffentlicher App)
 - Kosten ca. 5.000–15.000 €, Dauer 2–6 Wochen

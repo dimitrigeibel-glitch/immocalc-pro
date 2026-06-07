@@ -87,15 +87,15 @@ export function listenOnce(locale = 'de-AT', timeoutMs = 8000) {
 export function parseVoiceCommand(transcript) {
   const t = (transcript ?? '').toLowerCase().trim();
 
-  // CONFIRM: standard + Austrian dialect (jo, passt, passt scho, na klar, stimmt eh)
-  if (/^(ja|okay|ok|ja bitte|jep|genau|stimmt|richtig|sicher|bitte|jo|jö|passt|passt scho|passt eh|na klar|stimmt eh|ja eh|freilich|eh klar|natürlich)/.test(t)) {
-    return { intent: 'CONFIRM' };
-  }
-  // REJECT: standard + Austrian (na, na passt ned, nix, lösch das)
-  if (/^(nein|nö|nope|abbrechen|nicht|na$|na passt|nix|passt ned|passt nicht|lösch das|lösch|vergiss|vergiss das)/.test(t)) {
+  // REJECT checked first — "bitte nicht senden" must never fall through to CONFIRM
+  if (/^(nein|nö|nope|abbrechen|nicht|na$|na passt|nix|passt ned|passt nicht|lösch das|lösch|vergiss|vergiss das|bitte nicht|bitte stopp|bitte nein|auf keinen fall)/.test(t)) {
     return { intent: 'REJECT' };
   }
-  // STOP: stop/finish command — checked before REJECT so "stopp" lands here
+  // CONFIRM: "bitte" removed as standalone — keeps "ja bitte" but "bitte nicht" now hits REJECT above
+  if (/^(ja|okay|ok|ja bitte|jep|genau|stimmt|richtig|sicher|jo|jö|passt|passt scho|passt eh|na klar|stimmt eh|ja eh|freilich|eh klar|natürlich)/.test(t)) {
+    return { intent: 'CONFIRM' };
+  }
+  // STOP: checked before NEXT so "stopp" doesn't fall through
   if (/^stopp$|fertig|beenden|aufhören|schluss|hör auf|bin fertig/.test(t)) {
     return { intent: 'STOP' };
   }
