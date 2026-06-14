@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WM 2026 Analyzer</title>
+<meta name="description" content="WM 2026 Match Analyzer — Prognose von Spielausgängen, Ergebnissen, Verletzungen und Teamstimmung.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-primary:#ffffff; --bg-secondary:#fafafa; --bg-card:#ffffff;
+  --bg-input:#ffffff; --bg-hover:#f5f5f4; --bg-dark:#111111; --bg-dark-2:#1a1a1a;
+  --dark-rule:#2a2a2a;
+  --ink:#111111; --ink-2:#444444; --ink-3:#8a8a8a;
+  --on-dark:#ffffff; --on-dark-2:rgba(255,255,255,.55); --on-dark-3:rgba(255,255,255,.32);
+  --rule:#e8e8e6; --rule-strong:#1a1a1a;
+  --accent:#d63a14; --accent-hover:#b9300f; --accent-soft:rgba(214,58,20,.07); --accent-border:rgba(214,58,20,.40);
+  --positive:#0f6b39; --positive-soft:#f1f6f3; --negative:#c2300b; --negative-soft:#fbf2ef;
+  --warn:#8a6a1f; --warn-soft:#fbf6ea;
+  --wm-live:#16a34a; --wm-live-bg:#f0fdf4; --wm-gold:#b45309;
+  --t:all .15s cubic-bezier(.4,0,.2,1);
+}
+*,*::before,*::after { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family:'Inter Tight','Inter',system-ui,-apple-system,sans-serif;
+  background:var(--bg-secondary); color:var(--ink); min-height:100vh;
+  line-height:1.5; font-size:13px; letter-spacing:-0.005em; font-feature-settings:"ss01";
+  display:flex; flex-direction:column;
+}
+header {
+  display:flex; justify-content:space-between; align-items:stretch;
+  background:var(--bg-dark); color:var(--on-dark);
+  border-bottom:1px solid var(--rule-strong);
+  position:sticky; top:0; z-index:100; min-height:54px;
+}
+.header-left { display:flex; align-items:center; gap:14px; padding:0 24px; }
+.logo { display:flex; align-items:center; gap:12px; text-decoration:none; color:#fff; }
+.logo-icon { width:20px; height:20px; background:var(--accent); display:block; flex-shrink:0; }
+.logo-text { font-size:17px; font-weight:700; letter-spacing:-0.02em; color:#fff; }
+.logo-version {
+  font-family:'IBM Plex Mono',monospace; font-size:9px; color:rgba(255,255,255,.5);
+  border:1px solid var(--dark-rule); padding:3px 6px; letter-spacing:.10em; font-weight:600; text-transform:uppercase;
+}
+.live-badge {
+  display:inline-flex; align-items:center; gap:6px;
+  font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:.10em;
+  color:#fff; border:1px solid var(--wm-live); padding:3px 8px; text-transform:uppercase;
+}
+.live-dot { display:inline-block; width:7px; height:7px; background:var(--wm-live); animation:blink 1.2s step-end infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+.header-right { display:flex; align-items:stretch; }
+.hbtn {
+  font-family:'Inter Tight',sans-serif; font-size:10px; font-weight:600;
+  letter-spacing:.12em; text-transform:uppercase; color:rgba(255,255,255,.7);
+  background:none; border:none; border-left:1px solid var(--dark-rule);
+  padding:0 18px; cursor:pointer; transition:color .15s; display:flex; align-items:center; gap:7px;
+}
+.hbtn:hover { color:var(--accent); }
+.api-pip { width:7px; height:7px; display:inline-block; background:var(--ink-3); }
+.api-pip.ok { background:var(--wm-live); }
+.api-pip.off { background:var(--negative); }
+.banner {
+  background:var(--bg-dark-2); color:var(--on-dark-2);
+  border-bottom:1px solid var(--dark-rule);
+  padding:10px 24px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;
+  font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:.08em; text-transform:uppercase;
+}
+.banner b { color:#fff; font-weight:600; }
+.host-strip { display:flex; gap:14px; align-items:center; }
+main { flex:1; max-width:1280px; width:100%; margin:0 auto; padding:24px; }
+.tabs { display:flex; flex-wrap:wrap; gap:0; border-bottom:1px solid var(--rule); margin-bottom:18px; }
+.tab {
+  font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:.10em; text-transform:uppercase;
+  background:none; border:none; border-bottom:2px solid transparent; color:var(--ink-3);
+  padding:10px 14px; cursor:pointer; transition:var(--t);
+}
+.tab:hover { color:var(--ink); }
+.tab.active { color:var(--ink); border-bottom-color:var(--accent); }
+.subfilter { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:20px; }
+.chip {
+  font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:.06em; text-transform:uppercase;
+  background:#fff; border:1px solid var(--rule); color:var(--ink-2); padding:5px 10px; cursor:pointer; transition:var(--t);
+}
+.chip:hover { border-color:var(--ink); }
+.chip.active { background:var(--ink); color:#fff; border-color:var(--ink); }
+.match-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(330px,1fr)); gap:1px; background:var(--rule); border:1px solid var(--rule); }
+.match-card {
+  background:#fff; border-top:2px solid var(--rule-strong); padding:16px 18px; cursor:pointer; transition:var(--t);
+  display:flex; flex-direction:column; gap:10px;
+}
+.match-card:hover { border-top-color:var(--accent); background:var(--bg-hover); }
+.match-card.is-live { border-top-color:var(--wm-live); }
+.match-card.is-analyzed { border-top-color:var(--accent); }
+.mc-top { display:flex; justify-content:space-between; align-items:center;
+  font-family:'IBM Plex Mono',monospace; font-size:9px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3); }
+.mc-stage { color:var(--ink-2); font-weight:600; }
+.status-live { color:var(--wm-live); display:inline-flex; align-items:center; gap:5px; font-weight:600; }
+.mc-teams { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:8px; }
+.mc-team { display:flex; align-items:center; gap:8px; min-width:0; }
+.mc-team.away { justify-content:flex-end; }
+.mc-flag { font-size:18px; line-height:1; flex-shrink:0; }
+.mc-name { font-weight:600; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.mc-score { font-family:'IBM Plex Mono',monospace; font-size:15px; font-weight:600; color:var(--ink); padding:0 6px; white-space:nowrap; }
+.mc-score.time { font-size:11px; color:var(--ink-3); font-weight:500; }
+.mc-form { display:flex; justify-content:space-between; }
+.form-row { display:flex; gap:3px; }
+.form-row.away { flex-direction:row-reverse; }
+.form-dot { width:9px; height:9px; display:inline-block; }
+.form-dot.W { background:var(--positive); }
+.form-dot.D { background:var(--ink-3); }
+.form-dot.L { background:var(--negative); }
+.form-dot.empty { background:var(--rule); }
+.mc-foot { display:flex; justify-content:space-between; align-items:center; gap:8px;
+  font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:.04em; }
+.mc-pred { color:var(--ink-2); }
+.mc-pred b { color:var(--accent); }
+.badge {
+  font-family:'IBM Plex Mono',monospace; font-size:8px; letter-spacing:.08em; text-transform:uppercase;
+  padding:2px 6px; border:1px solid; font-weight:600;
+}
+.badge.upset { color:var(--warn); border-color:var(--warn); background:var(--warn-soft); }
+.badge.danger { color:var(--negative); border-color:var(--negative); background:var(--negative-soft); }
+.badge.go { color:var(--accent); border-color:var(--accent-border); background:var(--accent-soft); }
+.overlay { position:fixed; inset:0; background:rgba(17,17,17,.55); z-index:400; display:none; }
+.overlay.open { display:block; }
+.modal {
+  position:fixed; top:0; right:0; width:min(720px,100%); height:100vh; background:var(--bg-secondary);
+  z-index:401; transform:translateX(100%); transition:transform .25s ease; overflow-y:auto;
+  border-left:1px solid var(--rule);
+}
+.modal.open { transform:translateX(0); }
+.modal-head {
+  position:sticky; top:0; background:var(--bg-dark); color:#fff; z-index:5;
+  padding:16px 22px; display:flex; justify-content:space-between; align-items:center; gap:12px;
+  border-bottom:1px solid var(--dark-rule);
+}
+.modal-head h2 { font-size:16px; font-weight:700; letter-spacing:-0.01em; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.modal-head .sub { font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--on-dark-2); letter-spacing:.06em; text-transform:uppercase; margin-top:3px; }
+.x { background:none; border:1px solid var(--dark-rule); color:#fff; width:30px; height:30px; cursor:pointer; font-size:16px; flex-shrink:0; transition:var(--t); }
+.x:hover { border-color:var(--accent); color:var(--accent); }
+.modal-body { padding:22px; display:flex; flex-direction:column; gap:1px; }
+.sec { background:#fff; border:1px solid var(--rule); border-top:2px solid var(--rule-strong); padding:18px 20px; }
+.sec:first-child { border-top-color:var(--accent); }
+.sec h3 { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.16em; color:var(--ink);
+  margin-bottom:14px; padding-bottom:9px; border-bottom:1px solid var(--rule); display:flex; justify-content:space-between; align-items:center; }
+.sec h3 .note { font-weight:500; letter-spacing:.04em; color:var(--ink-3); text-transform:none; }
+.cmp-row { display:grid; grid-template-columns:1fr 90px 1fr; align-items:center; gap:10px; margin-bottom:12px; }
+.cmp-row:last-child { margin-bottom:0; }
+.cmp-label { font-family:'IBM Plex Mono',monospace; font-size:9px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-3); text-align:center; }
+.cmp-val { font-family:'IBM Plex Mono',monospace; font-size:12px; font-weight:600; }
+.cmp-val.r { text-align:right; }
+.cmp-bar { height:4px; background:var(--rule); position:relative; }
+.cmp-bar > i { position:absolute; top:0; bottom:0; background:var(--accent); }
+.cmp-bar.r > i { right:0; } .cmp-bar.l > i { left:0; }
+.cmp-pair { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+.prob-bar { display:flex; height:30px; border:1px solid var(--rule); font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:600; margin-bottom:6px; }
+.prob-seg { display:flex; align-items:center; justify-content:center; color:#fff; overflow:hidden; white-space:nowrap; min-width:0; }
+.prob-seg.home { background:var(--ink); }
+.prob-seg.draw { background:var(--ink-3); }
+.prob-seg.away { background:var(--accent); }
+.prob-legend { display:flex; justify-content:space-between; font-family:'IBM Plex Mono',monospace; font-size:9px; color:var(--ink-3); text-transform:uppercase; letter-spacing:.05em; }
+.heat { width:100%; border-collapse:collapse; font-family:'IBM Plex Mono',monospace; font-size:10px; margin-top:6px; }
+.heat th { color:var(--ink-3); font-weight:600; padding:4px; text-align:center; font-size:9px; }
+.heat td { text-align:center; padding:5px 4px; border:1px solid #fff; transition:var(--t); }
+.heat caption { font-family:'IBM Plex Mono',monospace; font-size:9px; color:var(--ink-3); text-align:left; margin-bottom:6px; text-transform:uppercase; letter-spacing:.06em; }
+.topscore-row { display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; }
+.topscore { border:1px solid var(--rule); padding:6px 10px; font-family:'IBM Plex Mono',monospace; font-size:11px; }
+.topscore b { color:var(--accent); }
+.topscore.best { border-color:var(--accent); background:var(--accent-soft); }
+.conf { margin-top:14px; }
+.conf-track { height:4px; background:var(--rule); margin:6px 0; }
+.conf-fill { height:100%; background:var(--accent); }
+.conf-label { display:flex; justify-content:space-between; font-family:'IBM Plex Mono',monospace; font-size:9px; color:var(--ink-3); text-transform:uppercase; letter-spacing:.06em; }
+.inj-cols { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+.inj-team { font-size:12px; font-weight:600; margin-bottom:8px; display:flex; align-items:center; gap:6px; }
+.inj-item { font-size:12px; color:var(--ink-2); padding:5px 0; border-bottom:1px solid var(--rule); display:flex; justify-content:space-between; gap:8px; }
+.inj-item:last-child { border-bottom:none; }
+.inj-tag { font-family:'IBM Plex Mono',monospace; font-size:8px; padding:1px 5px; border:1px solid; text-transform:uppercase; flex-shrink:0; }
+.inj-tag.out { color:var(--negative); border-color:var(--negative); }
+.inj-tag.doubt { color:var(--warn); border-color:var(--warn); }
+.inj-tag.susp { color:var(--ink-2); border-color:var(--ink-3); }
+.muted { color:var(--ink-3); font-size:12px; font-style:italic; }
+.h2h-row { display:flex; justify-content:space-between; font-family:'IBM Plex Mono',monospace; font-size:11px; padding:5px 0; border-bottom:1px solid var(--rule); }
+.h2h-row:last-child { border-bottom:none; }
+.h2h-row .date { color:var(--ink-3); }
+.news-item { padding:8px 0; border-bottom:1px solid var(--rule); }
+.news-item:last-child { border-bottom:none; }
+.news-item a { color:var(--ink); text-decoration:none; font-size:12px; font-weight:500; }
+.news-item a:hover { color:var(--accent); }
+.news-meta { font-family:'IBM Plex Mono',monospace; font-size:9px; color:var(--ink-3); margin-top:3px; text-transform:uppercase; letter-spacing:.04em; }
+.ai-out { font-size:13px; line-height:1.7; color:var(--ink-2); white-space:pre-wrap; }
+.ai-loading { font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--ink-3); }
+.ai-loading::after { content:'○'; animation:blink 1s step-end infinite; }
+.btn {
+  font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.06em; text-transform:uppercase; font-weight:600;
+  background:var(--ink); color:#fff; border:1px solid var(--ink); padding:9px 16px; cursor:pointer; transition:var(--t);
+}
+.btn:hover { background:var(--accent); border-color:var(--accent); }
+.btn.ghost { background:#fff; color:var(--ink); }
+.btn.ghost:hover { background:var(--ink); color:#fff; }
+.btn:disabled { opacity:.4; cursor:not-allowed; }
+.btn.sm { padding:6px 11px; font-size:10px; }
+.tip-row { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.tip-input { width:52px; height:40px; text-align:center; font-family:'IBM Plex Mono',monospace; font-size:18px; font-weight:600;
+  border:1px solid var(--rule); background:#fff; }
+.tip-input:focus { outline:none; border-color:var(--accent); }
+.tip-sep { font-family:'IBM Plex Mono',monospace; font-size:18px; color:var(--ink-3); }
+.tip-result { font-family:'IBM Plex Mono',monospace; font-size:11px; padding:6px 10px; border:1px solid var(--rule); }
+.tip-result.hit { color:var(--positive); border-color:var(--positive); background:var(--positive-soft); }
+.tip-result.partial { color:var(--warn); border-color:var(--warn); background:var(--warn-soft); }
+.tip-result.miss { color:var(--negative); border-color:var(--negative); background:var(--negative-soft); }
+.drawer { position:fixed; top:0; right:-440px; width:440px; max-width:100%; height:100vh; background:var(--bg-dark);
+  color:#fff; z-index:500; padding:0; transition:right .25s ease; overflow-y:auto; }
+.drawer.open { right:0; }
+.drawer-head { padding:18px 24px; border-bottom:1px solid var(--dark-rule); display:flex; justify-content:space-between; align-items:center; position:sticky; top:0; background:var(--bg-dark); }
+.drawer-head h2 { font-size:15px; font-weight:700; }
+.drawer-body { padding:24px; display:flex; flex-direction:column; gap:24px; }
+.field label { display:block; font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--on-dark-2); margin-bottom:7px; }
+.field .hint { font-size:11px; color:var(--on-dark-3); margin-top:6px; line-height:1.5; }
+.field .hint a { color:var(--accent); text-decoration:none; }
+.in-row { display:flex; gap:8px; }
+input.txt { flex:1; background:var(--bg-dark-2); border:1px solid var(--dark-rule); color:#fff; padding:9px 11px;
+  font-family:'IBM Plex Mono',monospace; font-size:11px; }
+input.txt:focus { outline:none; border-color:var(--accent); }
+.ktest { font-family:'IBM Plex Mono',monospace; font-size:10px; margin-top:7px; }
+.ktest.ok { color:var(--wm-live); } .ktest.err { color:var(--negative); } .ktest.run { color:var(--on-dark-2); }
+.slider-row { display:flex; align-items:center; gap:12px; }
+input[type=range] { flex:1; accent-color:var(--accent); }
+.weight-label { display:flex; justify-content:space-between; font-family:'IBM Plex Mono',monospace; font-size:9px; color:var(--on-dark-2); text-transform:uppercase; letter-spacing:.05em; margin-bottom:8px; }
+.drawer .divider { border-top:1px solid var(--dark-rule); }
+.budget { font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--on-dark-2); }
+.budget b { color:#fff; }
+.setup {
+  background:#fff; border:1px solid var(--accent-border); border-left:3px solid var(--accent);
+  padding:18px 22px; margin-bottom:20px;
+}
+.setup h3 { font-size:13px; font-weight:700; margin-bottom:8px; }
+.setup p { font-size:12px; color:var(--ink-2); margin-bottom:6px; }
+.setup ol { font-size:12px; color:var(--ink-2); margin:8px 0 8px 18px; line-height:1.8; }
+.setup a { color:var(--accent); text-decoration:none; }
+.setup a:hover { text-decoration:underline; }
+.rank-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:1px; background:var(--rule); border:1px solid var(--rule); margin-bottom:20px; }
+.rank-kpi { background:#fff; padding:16px 18px; }
+.rank-kpi .k { font-family:'IBM Plex Mono',monospace; font-size:9px; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-3); margin-bottom:6px; }
+.rank-kpi .v { font-size:24px; font-weight:700; font-family:'IBM Plex Mono',monospace; }
+.rank-kpi .v.accent { color:var(--accent); }
+.rank-table { width:100%; border-collapse:collapse; font-size:12px; }
+.rank-table th { font-family:'IBM Plex Mono',monospace; font-size:9px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-3); text-align:left; padding:8px; border-bottom:1px solid var(--rule); }
+.rank-table td { padding:8px; border-bottom:1px solid var(--rule); }
+.empty-state { text-align:center; padding:60px 20px; color:var(--ink-3); }
+.empty-state b { display:block; font-size:15px; color:var(--ink); margin-bottom:8px; }
+footer { background:var(--bg-dark); color:rgba(255,255,255,.4); text-align:center; padding:20px;
+  font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:.05em; border-top:1px solid var(--bg-dark-2); }
+footer .em { color:rgba(255,255,255,.6); }
+@media (max-width:600px) {
+  .header-left { padding:0 14px; gap:8px; }
+  .logo-version, .live-badge span { display:none; }
+  .hbtn { padding:0 12px; }
+  main { padding:14px; }
+  .match-grid { grid-template-columns:1fr; }
+  .modal { width:100%; }
+  .inj-cols { grid-template-columns:1fr; gap:14px; }
+  .drawer { width:100%; right:-100%; }
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="header-left">
+    <a class="logo" href="#">
+      <span class="logo-icon"></span>
+      <span class="logo-text">WM 2026</span>
+      <span class="logo-version">Analyzer</span>
+    </a>
+    <span class="live-badge"><span class="live-dot"></span><span>WC 2026 · LIVE</span></span>
+  </div>
+  <div class="header-right">
+    <button class="hbtn" onclick="refreshData()" title="Daten neu laden">Aktualisieren</button>
+    <button class="hbtn" onclick="openSettings()"><span class="api-pip" id="apiPip"></span>API Keys</button>
+  </div>
+</header>
+<div class="banner">
+  <div><b id="bannerDay">Spieltag &mdash;</b> &nbsp;&middot;&nbsp; <span id="bannerProgress">Gruppenphase</span></div>
+  <div class="host-strip">
+    <span>🇺🇸 USA</span><span>🇨🇦 Canada</span><span>🇲🇽 Mexico</span>
+  </div>
+</div>
+<main>
+  <div id="setupGuide"></div>
+  <div class="tabs" id="tabs"></div>
+  <div class="subfilter" id="subfilter"></div>
+  <div id="rankView" style="display:none"></div>
+  <div class="match-grid" id="matchGrid"></div>
+</main>
+<footer>
+  <span class="em">WM 2026 Analyzer</span> &nbsp;&middot;&nbsp; Prognosen sind statistische Schätzungen, keine Wettempfehlung. &nbsp;&middot;&nbsp; Daten lokal im Browser gespeichert.
+</footer>
+<div class="overlay" id="overlay" onclick="closeModal()"></div>
+<div class="modal" id="modal"></div>
+<div class="overlay" id="drawerOverlay" onclick="closeSettings()"></div>
+<aside class="drawer" id="drawer">
+  <div class="drawer-head">
+    <h2>Einstellungen &amp; API-Keys</h2>
+    <button class="x" onclick="closeSettings()">&times;</button>
+  </div>
+  <div class="drawer-body" id="drawerBody"></div>
+</aside>
+<script>
+const CFG={apiFootballBase:'https://v3.football.api-sports.io',gnewsBase:'https://gnews.io/api/v4',claudeBase:'https://api.anthropic.com/v1/messages',claudeModel:'claude-sonnet-4-6',leagueId:1,season:2026,bookmaker:8,maxGoals:6,neutralVenueFactor:0.88};
+const TTL={fixtures:30*60e3,standings:30*60e3,match:20*60e3,claude:24*3600e3,news:45*60e3};
+const K={apiFootball:'wm26_key_football',gnews:'wm26_key_gnews',claude:'wm26_key_claude',weight:'wm26_market_weight',quota:'wm26_quota'};
+function lsGet(k){try{return JSON.parse(localStorage.getItem(k));}catch{return null;}}
+function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
+function lsRaw(k){return localStorage.getItem(k)||'';}
+function lsSetRaw(k,v){try{localStorage.setItem(k,v);}catch{}}
+function cacheGet(key,ttl){const it=lsGet(key);if(!it||typeof it.ts!=='number')return null;if(Date.now()-it.ts>ttl)return null;return it.data;}
+function cacheSet(key,data){lsSet(key,{data,ts:Date.now()});}
+const TEAMS={ARG:{n:'Argentinien',f:'🇦🇷',rank:1,elo:2085},FRA:{n:'Frankreich',f:'🇫🇷',rank:2,elo:2010},ESP:{n:'Spanien',f:'🇪🇸',rank:3,elo:2040},ENG:{n:'England',f:'🏴',rank:4,elo:1985},BRA:{n:'Brasilien',f:'🇧🇷',rank:5,elo:1995},POR:{n:'Portugal',f:'🇵🇹',rank:6,elo:1975},NED:{n:'Niederlande',f:'🇳🇱',rank:7,elo:1965},BEL:{n:'Belgien',f:'🇧🇪',rank:8,elo:1940},GER:{n:'Deutschland',f:'🇩🇪',rank:9,elo:1960},CRO:{n:'Kroatien',f:'🇭🇷',rank:10,elo:1915},ITA:{n:'Italien',f:'🇮🇹',rank:11,elo:1935},URU:{n:'Uruguay',f:'🇺🇾',rank:12,elo:1920},COL:{n:'Kolumbien',f:'🇨🇴',rank:13,elo:1900},MAR:{n:'Marokko',f:'🇲🇦',rank:14,elo:1890},USA:{n:'USA',f:'🇺🇸',rank:15,elo:1820},MEX:{n:'Mexiko',f:'🇲🇽',rank:16,elo:1810},SUI:{n:'Schweiz',f:'🇨🇭',rank:17,elo:1855},JPN:{n:'Japan',f:'🇯🇵',rank:18,elo:1840},SEN:{n:'Senegal',f:'🇸🇳',rank:19,elo:1830},DEN:{n:'Dänemark',f:'🇩🇰',rank:20,elo:1845},KOR:{n:'Südkorea',f:'🇰🇷',rank:22,elo:1790},AUS:{n:'Australien',f:'🇦🇺',rank:24,elo:1760},CAN:{n:'Kanada',f:'🇨🇦',rank:30,elo:1740},ECU:{n:'Ecuador',f:'🇪🇨',rank:31,elo:1785},NGA:{n:'Nigeria',f:'🇳🇬',rank:28,elo:1770},EGY:{n:'Ägypten',f:'🇪🇬',rank:33,elo:1750},POL:{n:'Polen',f:'🇵🇱',rank:26,elo:1755},AUT:{n:'Österreich',f:'🇦🇹',rank:25,elo:1775},SRB:{n:'Serbien',f:'🇷🇸',rank:27,elo:1765},GHA:{n:'Ghana',f:'🇬🇭',rank:40,elo:1700},SCO:{n:'Schottland',f:'🏴',rank:35,elo:1730},NOR:{n:'Norwegen',f:'🇳🇴',rank:34,elo:1745},CIV:{n:'Elfenbeinküste',f:'🇨🇮',rank:42,elo:1695},TUN:{n:'Tunesien',f:'🇹🇳',rank:41,elo:1700},IRN:{n:'Iran',f:'🇮🇷',rank:21,elo:1780},KSA:{n:'Saudi-Arabien',f:'🇸🇦',rank:55,elo:1640},QAT:{n:'Katar',f:'🇶🇦',rank:38,elo:1680},CRC:{n:'Costa Rica',f:'🇨🇷',rank:52,elo:1660},PAN:{n:'Panama',f:'🇵🇦',rank:43,elo:1670},PAR:{n:'Paraguay',f:'🇵🇾',rank:45,elo:1685},PER:{n:'Peru',f:'🇵🇪',rank:48,elo:1675},JOR:{n:'Jordanien',f:'🇯🇴',rank:62,elo:1610},UZB:{n:'Usbekistan',f:'🇺🇿',rank:57,elo:1630},RSA:{n:'Südafrika',f:'🇿🇦',rank:58,elo:1635},ALG:{n:'Algerien',f:'🇩🇿',rank:37,elo:1715},CPV:{n:'Kap Verde',f:'🇨🇻',rank:70,elo:1590},NZL:{n:'Neuseeland',f:'🇳🇿',rank:86,elo:1530},HAI:{n:'Haiti',f:'🇭🇹',rank:82,elo:1545}};
+const SCHEDULE=[{id:1,group:'A',stage:'Gruppe A',home:'MEX',away:'POL',date:'2026-06-11T20:00:00Z',status:'finished',hs:2,as:1,venue:'Mexiko-Stadt',formH:'WWDWL',formA:'WLDWW'},{id:2,group:'A',stage:'Gruppe A',home:'CAN',away:'MAR',date:'2026-06-12T19:00:00Z',status:'finished',hs:1,as:1,venue:'Toronto',formH:'WLWDL',formA:'WWWDW'},{id:3,group:'B',stage:'Gruppe B',home:'USA',away:'SUI',date:'2026-06-12T23:00:00Z',status:'finished',hs:0,as:2,venue:'Los Angeles',formH:'WDLWW',formA:'WWDWD'},{id:4,group:'B',stage:'Gruppe B',home:'ECU',away:'KOR',date:'2026-06-13T18:00:00Z',status:'live',hs:1,as:1,venue:'Seattle',formH:'DWWLD',formA:'WLWWD'},{id:5,group:'C',stage:'Gruppe C',home:'ESP',away:'CRO',date:'2026-06-13T21:00:00Z',status:'live',hs:2,as:0,venue:'Dallas',formH:'WWWWD',formA:'WDWLW'},{id:6,group:'C',stage:'Gruppe C',home:'GER',away:'JPN',date:'2026-06-14T18:00:00Z',status:'upcoming',venue:'Atlanta',formH:'WWDWW',formA:'WWLWD'},{id:7,group:'D',stage:'Gruppe D',home:'FRA',away:'NOR',date:'2026-06-14T21:00:00Z',status:'upcoming',venue:'Houston',formH:'WWWDW',formA:'WDWWL'},{id:8,group:'D',stage:'Gruppe D',home:'NGA',away:'AUS',date:'2026-06-15T18:00:00Z',status:'upcoming',venue:'Miami',formH:'WDLWW',formA:'LWDWL'},{id:9,group:'E',stage:'Gruppe E',home:'ENG',away:'EGY',date:'2026-06-15T21:00:00Z',status:'upcoming',venue:'Philadelphia',formH:'WWWDW',formA:'WDWWD'},{id:10,group:'E',stage:'Gruppe E',home:'POR',away:'URU',date:'2026-06-16T19:00:00Z',status:'upcoming',venue:'Kansas City',formH:'WWDWW',formA:'WDWLW'},{id:11,group:'F',stage:'Gruppe F',home:'BRA',away:'SEN',date:'2026-06-16T22:00:00Z',status:'upcoming',venue:'San Francisco',formH:'WWWWD',formA:'WWDWL'},{id:12,group:'F',stage:'Gruppe F',home:'NED',away:'MEX',date:'2026-06-17T18:00:00Z',status:'upcoming',venue:'Boston',formH:'WDWWW',formA:'WWDWL'},{id:13,group:'G',stage:'Gruppe G',home:'BEL',away:'COL',date:'2026-06-17T21:00:00Z',status:'upcoming',venue:'Vancouver',formH:'WDWLW',formA:'WWDDW'},{id:14,group:'G',stage:'Gruppe G',home:'ITA',away:'GHA',date:'2026-06-18T18:00:00Z',status:'upcoming',venue:'Guadalajara',formH:'WWDWW',formA:'LWDWL'},{id:15,group:'H',stage:'Gruppe H',home:'ARG',away:'SCO',date:'2026-06-18T21:00:00Z',status:'upcoming',venue:'Monterrey',formH:'WWWWW',formA:'WDWLD'},{id:16,group:'H',stage:'Gruppe H',home:'DEN',away:'IRN',date:'2026-06-19T19:00:00Z',status:'upcoming',venue:'Dallas',formH:'WWDWL',formA:'DWWDL'}];
+const INJ_SEED={GER:[{name:'Marco Reus',type:'doubt',reason:'Oberschenkel'},{name:'A. Rüdiger',type:'susp',reason:'Gelbsperre'}],JPN:[{name:'Takefusa Kubo',type:'out',reason:'Knöchel'}],FRA:[{name:'O. Dembélé',type:'doubt',reason:'Wade'}],ENG:[{name:'L. Shaw',type:'out',reason:'Muskelverletzung'}],ESP:[{name:'Gavi',type:'out',reason:'Kreuzband-Reha'}],BRA:[{name:'Neymar',type:'doubt',reason:'Aufbautraining'}],ARG:[{name:'Á. Di María',type:'doubt',reason:'Belastungssteuerung'}]};
+function keys(){return{football:lsRaw(K.apiFootball),gnews:lsRaw(K.gnews),claude:lsRaw(K.claude)};}
+function hasFootball(){return!!keys().football;}
+async function apiFootball(path,params={}){const key=keys().football;if(!key)throw new Error('NO_KEY');const url=new URL(CFG.apiFootballBase+path);Object.entries(params).forEach(([k,v])=>url.searchParams.set(k,v));const res=await fetch(url,{headers:{'x-apisports-key':key}});const rem=res.headers.get('x-ratelimit-requests-remaining')||res.headers.get('X-RateLimit-Remaining');if(rem!==null)lsSet(K.quota,{remaining:Number(rem),day:new Date().toISOString().slice(0,10)});if(!res.ok)throw new Error('HTTP '+res.status);const json=await res.json();if(json.errors&&Object.keys(json.errors).length)throw new Error(Object.values(json.errors).join('; '));return json.response;}
+async function fetchFixtures(){const cached=cacheGet('wm26_fixtures',TTL.fixtures);if(cached)return cached;if(!hasFootball())return SCHEDULE.map(normalizeSeed);try{const resp=await apiFootball('/fixtures',{league:CFG.leagueId,season:CFG.season});const fx=resp.map(normalizeFixture);cacheSet('wm26_fixtures',fx);return fx;}catch(e){console.warn('fixtures fallback:',e.message);return SCHEDULE.map(normalizeSeed);}}
+function normalizeSeed(s){return{id:s.id,group:s.group,stage:s.stage,status:s.status,home:s.home,away:s.away,homeName:TEAMS[s.home]?.n||s.home,awayName:TEAMS[s.away]?.n||s.away,date:s.date,venue:s.venue,hs:s.hs??null,as:s.as??null,formH:s.formH||'',formA:s.formA||''};}
+function normalizeFixture(r){const st=r.fixture.status.short;const status=['1H','2H','HT','ET','P','LIVE'].includes(st)?'live':['FT','AET','PEN'].includes(st)?'finished':'upcoming';const code=(name)=>Object.keys(TEAMS).find(c=>TEAMS[c].n===name)||(name||'').slice(0,3).toUpperCase();return{id:r.fixture.id,group:(r.league.round||'').replace('Group ',''),stage:r.league.round||'',status,home:code(r.teams.home.name),away:code(r.teams.away.name),homeName:r.teams.home.name,awayName:r.teams.away.name,homeLogo:r.teams.home.logo,awayLogo:r.teams.away.logo,date:r.fixture.date,venue:r.fixture.venue?.city||'',hs:r.goals.home,as:r.goals.away,formH:'',formA:'',teamIdH:r.teams.home.id,teamIdA:r.teams.away.id};}
+async function fetchStandings(){if(!hasFootball())return null;const cached=cacheGet('wm26_standings',TTL.standings);if(cached)return cached;try{const resp=await apiFootball('/standings',{league:CFG.leagueId,season:CFG.season});const rows=(resp[0]?.league?.standings||[]).flat().map(t=>({teamId:t.team.id,name:t.team.name,played:t.all.played||0,gf:t.all.goals.for||0,ga:t.all.goals.against||0}));cacheSet('wm26_standings',rows);return rows;}catch(e){console.warn('standings fallback:',e.message);return null;}}
+async function fetchMatchExtras(fx){const key='wm26_match_'+fx.id;const cached=cacheGet(key,TTL.match);if(cached)return cached;let injuries={home:INJ_SEED[fx.home]||[],away:INJ_SEED[fx.away]||[]};let h2h=sampleH2H(fx);let odds=null;if(hasFootball()&&fx.teamIdH&&fx.teamIdA){try{const[inj,hh,od]=await Promise.all([apiFootball('/injuries',{league:CFG.leagueId,season:CFG.season,fixture:fx.id}).catch(()=>[]),apiFootball('/fixtures/headtohead',{h2h:`${fx.teamIdH}-${fx.teamIdA}`,last:5}).catch(()=>[]),apiFootball('/odds',{fixture:fx.id,bookmaker:CFG.bookmaker}).catch(()=>[])]);if(inj.length){injuries={home:[],away:[]};inj.forEach(i=>{const side=i.team.id===fx.teamIdH?'home':'away';injuries[side].push({name:i.player.name,type:mapInjType(i.player.type),reason:i.player.reason||''});});}if(hh.length)h2h=hh.map(m=>({date:m.fixture.date.slice(0,10),h:m.teams.home.name,a:m.teams.away.name,hs:m.goals.home,as:m.goals.away}));odds=parseOdds(od);}catch(e){console.warn('extras partial:',e.message);}}
+const data={injuries,h2h,odds};cacheSet(key,data);return data;}
+function mapInjType(t){t=(t||'').toLowerCase();if(t.includes('missing')||t.includes('out'))return'out';if(t.includes('question')||t.includes('doubt'))return'doubt';return'doubt';}
+function parseOdds(resp){try{const bet=resp[0]?.bookmakers?.[0]?.bets?.find(b=>b.name==='Match Winner');if(!bet)return null;const g=(v)=>Number(bet.values.find(x=>x.value===v)?.odd);const h=g('Home'),d=g('Draw'),a=g('Away');if(!h||!d||!a)return null;return{homeOdds:h,drawOdds:d,awayOdds:a};}catch{return null;}}
+function sampleH2H(fx){const out=[];let seed=(fx.home.charCodeAt(0)+fx.away.charCodeAt(1));for(let i=0;i<4;i++){seed=(seed*9301+49297)%233280;const hs=seed%4,as=(seed>>2)%3;out.push({date:`202${i}-1${i}-1${i}`,h:fx.homeName,a:fx.awayName,hs,as});}return out;}
+async function fetchNews(fx){const key='wm26_news_'+fx.id;const cached=cacheGet(key,TTL.news);if(cached)return cached;const gk=keys().gnews;if(!gk){const stub=[{title:`${fx.homeName}: Trainer äußert sich zur Aufstellung`,source:'Demo',date:fx.date.slice(0,10),url:'#'},{title:`${fx.awayName}: Stimmung im Lager vor dem Anpfiff`,source:'Demo',date:fx.date.slice(0,10),url:'#'}];cacheSet(key,stub);return stub;}try{const q=encodeURIComponent(`"${fx.homeName}" OR "${fx.awayName}" injury OR morale World Cup`);const res=await fetch(`${CFG.gnewsBase}/search?q=${q}&lang=en&max=5&token=${gk}`);const json=await res.json();const arts=(json.articles||[]).map(a=>({title:a.title,source:a.source?.name||'',date:(a.publishedAt||'').slice(0,10),url:a.url}));cacheSet(key,arts);return arts;}catch(e){console.warn('news:',e.message);return[];}}
+function poisson(lambda,k){if(lambda<=0)return k===0?1:0;let logP=k*Math.log(lambda)-lambda;for(let i=2;i<=k;i++)logP-=Math.log(i);return Math.exp(logP);}
+function buildScoreMatrix(lh,la,maxGoals=CFG.maxGoals){const m=[];for(let h=0;h<=maxGoals;h++){m[h]=[];for(let a=0;a<=maxGoals;a++)m[h][a]=poisson(lh,h)*poisson(la,a);}return m;}
+function deriveOutcomes(m){let home=0,draw=0,away=0;for(let h=0;h<m.length;h++)for(let a=0;a<m[h].length;a++){if(h>a)home+=m[h][a];else if(h===a)draw+=m[h][a];else away+=m[h][a];}const s=home+draw+away||1;return{home:home/s,draw:draw/s,away:away/s};}
+function topScores(m,n=5){const s=[];for(let h=0;h<m.length;h++)for(let a=0;a<m[h].length;a++)s.push({score:`${h}:${a}`,h,a,prob:m[h][a]});return s.sort((x,y)=>y.prob-x.prob).slice(0,n);}
+function computeStrengths(rows){if(!rows||!rows.length)return null;const valid=rows.filter(t=>t.played>0);if(valid.length<4)return null;const avgF=mean(valid.map(t=>t.gf/t.played));const avgA=mean(valid.map(t=>t.ga/t.played));const map={};valid.forEach(t=>{map[t.teamId]={attack:(t.gf/t.played)/avgF,defense:(t.ga/t.played)/avgA};});return{map,avgGoals:avgF};}
+function mean(a){return a.reduce((s,x)=>s+x,0)/(a.length||1);}
+function eloLambdas(homeCode,awayCode){const eH=TEAMS[homeCode]?.elo??1700,eA=TEAMS[awayCode]?.elo??1700;const diff=eH-eA;const expH=1/(1+Math.pow(10,-diff/400));const base=1.35;let lh=base*(0.6+0.9*expH);let la=base*(0.6+0.9*(1-expH));lh*=CFG.neutralVenueFactor;la*=CFG.neutralVenueFactor;return{lh,la};}
+function formFactor(form){if(!form)return 1;const pts=[...form].reduce((s,c)=>s+(c==='W'?1:c==='D'?0.4:0),0);const max=form.length;return 0.85+0.30*(pts/max);}
+function modelMatch(fx,strengths){let lh,la,basis;const sMap=strengths?.map,hasStats=sMap&&fx.teamIdH&&sMap[fx.teamIdH]&&fx.teamIdA&&sMap[fx.teamIdA];if(hasStats){const H=sMap[fx.teamIdH],A=sMap[fx.teamIdA],avg=strengths.avgGoals;lh=H.attack*A.defense*avg*CFG.neutralVenueFactor;la=A.attack*H.defense*avg*CFG.neutralVenueFactor;basis='Statistik (Gruppenphase)';}else{const e=eloLambdas(fx.home,fx.away);lh=e.lh;la=e.la;basis='ELO + Form';}lh*=formFactor(fx.formH);la*=formFactor(fx.formA);lh=Math.max(0.15,Math.min(4,lh));la=Math.max(0.15,Math.min(4,la));const matrix=buildScoreMatrix(lh,la);const poissonOut=deriveOutcomes(matrix);return{lh,la,matrix,poisson:poissonOut,top:topScores(matrix,5),basis};}
+function oddsToImplied(h,d,a){const rh=1/h,rd=1/d,ra=1/a,s=rh+rd+ra;return{home:rh/s,draw:rd/s,away:ra/s};}
+function blend(poissonOut,market,w){if(!market)return{...poissonOut,blended:false};return{home:poissonOut.home*(1-w)+market.home*w,draw:poissonOut.draw*(1-w)+market.draw*w,away:poissonOut.away*(1-w)+market.away*w,blended:true};}
+function marketWeight(){const v=lsGet(K.weight);return(v==null?0.6:v);}
+function confidenceOf(p){const top=Math.max(p.home,p.draw,p.away);const lvl=top>=0.55?'Hoch':top>=0.42?'Mittel':'Niedrig';return{pct:Math.round(top*100),lvl};}
+function buildPrompt(ctx){const{fx,model,blended,extras,news,market}=ctx;const inj=s=>s.length?s.map(i=>`${i.name} (${i.type}${i.reason?': '+i.reason:''})`).join(', '):'None reported';return `You are an expert football analyst covering the 2026 FIFA World Cup. Today is ${new Date().toISOString().slice(0,10)}.\n\nMatch: ${fx.homeName} vs ${fx.awayName} | ${fx.stage} | ${fx.venue} | ${fx.date}\nForm: ${fx.homeName}: ${fx.formH||'n/a'} / ${fx.awayName}: ${fx.formA||'n/a'}\nH2H: ${extras.h2h.map(m=>`${m.date}: ${m.h} ${m.hs}-${m.as} ${m.a}`).join(' | ')||'n/a'}\nInjuries: ${fx.homeName}: ${inj(extras.injuries.home)} / ${fx.awayName}: ${inj(extras.injuries.away)}\nNews: ${news.slice(0,3).map(n=>`- ${n.title}`).join('\n')||'none'}\nModel (${model.basis}): ${fx.homeName} ${(model.poisson.home*100).toFixed(1)}% Draw ${(model.poisson.draw*100).toFixed(1)}% ${fx.awayName} ${(model.poisson.away*100).toFixed(1)}%\nBlended: ${fx.homeName} ${(blended.home*100).toFixed(1)}% Draw ${(blended.draw*100).toFixed(1)}% ${fx.awayName} ${(blended.away*100).toFixed(1)}%\nTop scores: ${model.top.slice(0,3).map(s=>`${s.score}(${(s.prob*100).toFixed(1)}%)`).join(', ')}\n${market?`Odds implied: H${(market.home*100).toFixed(0)}% D${(market.draw*100).toFixed(0)}% A${(market.away*100).toFixed(0)}%`:''}\n\nAnswer in English, max 180 words, plain text:\n1. Key factors (tactical/physical/psychological)\n2. My call: winner + exact predicted score\n3. Confidence (High/Medium/Low) + main risk`;}
+async function callClaude(prompt){const key=keys().claude;if(!key)throw new Error('NO_CLAUDE_KEY');const res=await fetch(CFG.claudeBase,{method:'POST',headers:{'x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true','content-type':'application/json'},body:JSON.stringify({model:CFG.claudeModel,max_tokens:600,messages:[{role:'user',content:prompt}]})});if(!res.ok){let m='HTTP '+res.status;try{const e=await res.json();m=e.error?.message||m;}catch{}throw new Error(m);}const data=await res.json();return data.content.map(c=>c.text).join('');}
+let STATE={fixtures:[],strengths:null,tab:'all',group:null,predCache:{}};
+const $=(s,r=document)=>r.querySelector(s);
+const esc=(s)=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function flag(code){return TEAMS[code]?.f||'🏳';}
+function fmtTime(iso){const d=new Date(iso);return d.toLocaleDateString('de-DE',{day:'2-digit',month:'short'})+' · '+d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});}
+function quickPredict(fx){if(STATE.predCache[fx.id])return STATE.predCache[fx.id];const model=modelMatch(fx,STATE.strengths);const p=model.poisson;STATE.predCache[fx.id]={model,p};return STATE.predCache[fx.id];}
+function renderTabs(){const tabs=[['all','Alle'],['live','Live'],['today','Heute'],['upcoming','Kommend'],['finished','Beendet'],['rank','Mein Ranking']];$('#tabs').innerHTML=tabs.map(([k,l])=>`<button class="tab ${STATE.tab===k?'active':''}" onclick="setTab('${k}')">${l}</button>`).join('');const groups=[...new Set(STATE.fixtures.map(f=>f.group).filter(Boolean))].sort();$('#subfilter').innerHTML=STATE.tab==='rank'?'':`<button class="chip ${!STATE.group?'active':''}" onclick="setGroup(null)">Alle Gruppen</button>`+groups.map(g=>`<button class="chip ${STATE.group===g?'active':''}" onclick="setGroup('${g}')">Gruppe ${g}</button>`).join('');}
+function filterFixtures(){const today=new Date().toISOString().slice(0,10);return STATE.fixtures.filter(f=>{if(STATE.group&&f.group!==STATE.group)return false;if(STATE.tab==='live')return f.status==='live';if(STATE.tab==='today')return f.date.slice(0,10)===today;if(STATE.tab==='upcoming')return f.status==='upcoming';if(STATE.tab==='finished')return f.status==='finished';return true;});}
+function renderGrid(){const grid=$('#matchGrid'),rank=$('#rankView');if(STATE.tab==='rank'){grid.style.display='none';rank.style.display='block';renderRanking();return;}grid.style.display='grid';rank.style.display='none';const list=filterFixtures();if(!list.length){grid.style.display='block';grid.innerHTML=`<div class="empty-state"><b>Keine Spiele</b>Für diesen Filter gibt es aktuell keine Begegnungen.</div>`;return;}grid.innerHTML=list.map(renderCard).join('');}
+function renderCard(fx){const live=fx.status==='live',fin=fx.status==='finished';const{model,p}=quickPredict(fx);const conf=confidenceOf(p);const analyzed=!!lsGet('wm26_claude_'+fx.id);const top=model.top[0];const lead=p.home>=p.away&&p.home>=p.draw?fx.home:p.away>=p.draw?fx.away:'X';const leadPct=Math.round(Math.max(p.home,p.draw,p.away)*100);let scoreCell=live||fin?`<span class="mc-score">${fx.hs??0}:${fx.as??0}</span>`:`<span class="mc-score time">${fmtTime(fx.date)}</span>`;const tip=lsGet('wm26_tip_'+fx.id);return `<div class="match-card ${live?'is-live':''} ${analyzed?'is-analyzed':''}" onclick="openMatch(${fx.id})"><div class="mc-top"><span class="mc-stage">${esc(fx.stage)}</span>${live?'<span class="status-live"><span class="live-dot"></span>Live</span>':`<span>${new Date(fx.date).toLocaleDateString('de-DE',{day:'2-digit',month:'short'})}</span>`}</div><div class="mc-teams"><div class="mc-team"><span class="mc-flag">${flag(fx.home)}</span><span class="mc-name">${esc(fx.homeName)}</span></div>${scoreCell}<div class="mc-team away"><span class="mc-name">${esc(fx.awayName)}</span><span class="mc-flag">${flag(fx.away)}</span></div></div><div class="mc-form"><div class="form-row">${formDots(fx.formH)}</div><div class="form-row away">${formDots(fx.formA)}</div></div><div class="mc-foot"><span class="mc-pred">${fin?`Ergebnis <b>${fx.hs}:${fx.as}</b> · Prog. ${lead==='X'?'Remis':lead} ${leadPct}%`:`Prognose <b>${lead==='X'?'Remis':lead} ${leadPct}%</b> · ${top.score}`}</span><span style="display:flex;gap:5px">${tip?'<span class="badge go">Tipp ✓</span>':''}${analyzed?'<span class="badge go">KI</span>':''}</span></div></div>`;}
+function formDots(form){const f=(form||'').slice(-5).padStart(5,'·');return[...f].map(c=>`<span class="form-dot ${c==='·'?'empty':c}"></span>`).join('');}
+async function openMatch(id){const fx=STATE.fixtures.find(f=>f.id===id);if(!fx)return;const modal=$('#modal'),ov=$('#overlay');ov.classList.add('open');modal.classList.add('open');modal.scrollTop=0;modal.innerHTML=`<div class="modal-head"><div><h2>${flag(fx.home)} ${esc(fx.homeName)} <span style="color:var(--on-dark-3)">vs</span> ${esc(fx.awayName)} ${flag(fx.away)}</h2><div class="sub">${esc(fx.stage)} · ${esc(fx.venue)} · ${fmtTime(fx.date)}</div></div><button class="x" onclick="closeModal()">&times;</button></div><div class="modal-body"><div class="sec"><div class="ai-loading">Lade Spieldaten</div></div></div>`;const[extras,news]=await Promise.all([fetchMatchExtras(fx),fetchNews(fx)]);const model=modelMatch(fx,STATE.strengths);const market=extras.odds?oddsToImplied(extras.odds.homeOdds,extras.odds.drawOdds,extras.odds.awayOdds):null;const blended=blend(model.poisson,market,marketWeight());const ctx={fx,model,blended,market,extras,news};modal._ctx=ctx;modal.innerHTML=renderModal(ctx);}
+function renderModal(ctx){const{fx,model,blended,market,extras,news}=ctx;const conf=confidenceOf(blended);const fin=fx.status==='finished';const p=blended;const seg=(cls,v,label)=>`<div class="prob-seg ${cls}" style="width:${(v*100).toFixed(1)}%">${v>0.12?(v*100).toFixed(0)+'%':''}</div>`;const injCol=(name,code,list)=>`<div class="inj-team">${flag(code)} ${esc(name)}</div>${list.length?list.map(i=>`<div class="inj-item"><span>${esc(i.name)}${i.reason?` <span style="color:var(--ink-3)">· ${esc(i.reason)}</span>`:''}</span><span class="inj-tag ${i.type}">${i.type==='out'?'Ausfall':i.type==='susp'?'Sperre':'Fraglich'}</span></div>`).join(''):'<div class="muted">Keine Ausfälle gemeldet</div>'}`;
+const max=Math.max(...model.matrix.flat());const N=Math.min(6,model.matrix.length);let head='<th></th>';for(let a=0;a<N;a++)head+=`<th>${a}</th>`;let hrows='';for(let h=0;h<N;h++){let r=`<th>${h}</th>`;for(let a=0;a<N;a++){const v=model.matrix[h][a],rel=v/max;const bg=`rgba(214,58,20,${(0.05+rel*0.85).toFixed(3)})`;const col=rel>0.5?'#fff':'var(--ink)';r+=`<td style="background:${bg};color:${col}">${(v*100).toFixed(0)}</td>`;}hrows+=`<tr>${r}</tr>`;}
+const aiCached=lsGet('wm26_claude_'+fx.id);const aiBox=aiCached?`<div class="ai-out">${esc(aiCached.text)}</div><div style="margin-top:12px"><button class="btn ghost sm" onclick="runAI(${fx.id},true)">Neu analysieren</button></div>`:keys().claude?`<button class="btn" onclick="runAI(${fx.id})">Analyse starten</button><p class="muted" style="margin-top:8px">Claude synthetisiert Form, Verletzungen, News &amp; Modell.</p>`:`<p class="muted">Kein Claude-Key. <a href="#" onclick="closeModal();openSettings();return false" style="color:var(--accent)">Eintragen</a></p>`;
+const H=TEAMS[fx.home]||{rank:30,elo:1700},A=TEAMS[fx.away]||{rank:30,elo:1700};const fH=formFactor(fx.formH),fA=formFactor(fx.formA);const rs=r=>Math.max(0,60-r);const cmpRow=(lbl,vH,vA,mx,fmt)=>`<div class="cmp-row"><div><div class="cmp-val r">${fmt(vH)}</div><div class="cmp-bar r"><i style="width:${Math.min(100,(vH/mx)*100)}%"></i></div></div><div class="cmp-label">${lbl}</div><div><div class="cmp-val">${fmt(vA)}</div><div class="cmp-bar l"><i style="width:${Math.min(100,(vA/mx)*100)}%"></i></div></div></div>`;
+const tip=lsGet('wm26_tip_'+fx.id);let tipRes='';if(tip&&fin){const sc=scoreTip(tip,{hs:fx.hs,as:fx.as});const cls=sc.pts===3?'hit':sc.pts===1?'partial':'miss';tipRes=`<div class="tip-result ${cls}" style="margin-top:12px">Dein Tipp ${tip.h}:${tip.a} · Endstand ${fx.hs}:${fx.as} · <b>${sc.pts} Punkte</b> (${sc.label})</div>`;}else if(tip){tipRes=`<div class="tip-result" style="margin-top:12px">Tipp gespeichert: <b>${tip.h}:${tip.a}</b></div>`;}
+return`<div class="modal-head"><div><h2>${flag(fx.home)} ${esc(fx.homeName)} <span style="color:var(--on-dark-3)">vs</span> ${esc(fx.awayName)} ${flag(fx.away)}</h2><div class="sub">${esc(fx.stage)} · ${esc(fx.venue)} · ${fmtTime(fx.date)}${fin?` · Endstand ${fx.hs}:${fx.as}`:''}</div></div><button class="x" onclick="closeModal()">&times;</button></div><div class="modal-body"><div class="sec"><h3>Vorhersage <span class="note">${esc(model.basis)}${market?' + Markt':''}</span></h3><div class="prob-bar">${seg('home',p.home,fx.homeName)}${seg('draw',p.draw,'Remis')}${seg('away',p.away,fx.awayName)}</div><div class="prob-legend"><span>${esc(fx.home)} Sieg</span><span>Remis</span><span>${esc(fx.away)} Sieg</span></div><div class="topscore-row">${model.top.map((s,i)=>`<span class="topscore ${i===0?'best':''}">${s.score} <b>${(s.prob*100).toFixed(1)}%</b></span>`).join('')}</div><div class="conf"><div class="conf-label"><span>Konfidenz: ${conf.lvl}</span><span>${conf.pct}%</span></div><div class="conf-track"><div class="conf-fill" style="width:${conf.pct}%"></div></div></div><table class="heat"><caption>Ergebnis-Matrix (Zeile=${esc(fx.home)}, Spalte=${esc(fx.away)}, % Wahrsch.)</caption><tr>${head}</tr>${hrows}</table></div><div class="sec"><h3>Team-Vergleich</h3>${cmpRow('FIFA-Rang',rs(H.rank),rs(A.rank),60,v=>`#${60-Math.round(v)}`)}${cmpRow('ELO',H.elo,A.elo,2100,v=>Math.round(v))}${cmpRow('Form',fH,fA,1.2,v=>v.toFixed(2))}</div><div class="sec"><h3>Verletzungen &amp; Sperren</h3><div class="inj-cols"><div>${injCol(fx.homeName,fx.home,extras.injuries.home)}</div><div>${injCol(fx.awayName,fx.away,extras.injuries.away)}</div></div></div>${extras.h2h.length?`<div class="sec"><h3>Kopf-an-Kopf</h3>${extras.h2h.map(m=>`<div class="h2h-row"><span class="date">${esc(m.date)}</span><span>${esc(m.h)} <b>${m.hs}:${m.as}</b> ${esc(m.a)}</span></div>`).join('')}</div>`:''}<div class="sec"><h3>Aktuelle Meldungen <span class="note">${keys().gnews?'live':'Demo'}</span></h3>${news.length?news.map(n=>`<div class="news-item"><a href="${esc(n.url)}" target="_blank" rel="noopener">${esc(n.title)}</a><div class="news-meta">${esc(n.source)} · ${esc(n.date)}</div></div>`).join(''):'<div class="muted">Keine Meldungen</div>'}</div><div class="sec" id="aiSec"><h3>KI-Analyse <span class="note">${esc(CFG.claudeModel)}</span></h3><div id="aiBox">${aiBox}</div></div>${market?`<div class="sec"><h3>Wettquoten <span class="note">Bet365</span></h3><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px"><div class="topscore">Heim <b>${extras.odds.homeOdds}</b><br><span class="muted">${(market.home*100).toFixed(0)}%</span></div><div class="topscore">Remis <b>${extras.odds.drawOdds}</b><br><span class="muted">${(market.draw*100).toFixed(0)}%</span></div><div class="topscore">Ausw. <b>${extras.odds.awayOdds}</b><br><span class="muted">${(market.away*100).toFixed(0)}%</span></div></div></div>`:''}<div class="sec"><h3>Mein Tipp <span class="note">vs. KI: ${model.top[0].score}</span></h3><div class="tip-row"><span class="mc-flag">${flag(fx.home)}</span><input class="tip-input" id="tipH" type="number" min="0" max="20" value="${tip?tip.h:''}" ${fin?'disabled':''}><span class="tip-sep">:</span><input class="tip-input" id="tipA" type="number" min="0" max="20" value="${tip?tip.a:''}" ${fin?'disabled':''}><span class="mc-flag">${flag(fx.away)}</span>${fin?'':`<button class="btn sm" onclick="saveTip(${fx.id})">Speichern</button>`}</div>${tipRes}<p class="muted" style="margin-top:10px">3 Pkt exakt · 1 Pkt Tendenz · 0 daneben</p></div></div>`;}
+async function runAI(id,force){const modal=$('#modal');const ctx=modal._ctx;if(!ctx)return;const box=$('#aiBox');if(!force){const cached=lsGet('wm26_claude_'+id);if(cached){box.innerHTML=`<div class="ai-out">${esc(cached.text)}</div>`;return;}}box.innerHTML='<div class="ai-loading">Claude analysiert</div>';try{const text=await callClaude(buildPrompt(ctx));lsSet('wm26_claude_'+id,{text,ts:Date.now()});box.innerHTML=`<div class="ai-out">${esc(text)}</div><div style="margin-top:12px"><button class="btn ghost sm" onclick="runAI(${id},true)">Neu</button></div>`;renderGrid();}catch(e){box.innerHTML=`<div class="tip-result miss">Fehler: ${esc(e.message)}</div><div style="margin-top:10px"><button class="btn ghost sm" onclick="runAI(${id},true)">Retry</button></div>`;}}
+function saveTip(id){const h=parseInt($('#tipH').value,10),a=parseInt($('#tipA').value,10);if(isNaN(h)||isNaN(a)){alert('Bitte beide Felder ausfüllen.');return;}lsSet('wm26_tip_'+id,{h,a,ts:Date.now()});openMatch(id);}
+function scoreTip(tip,res){if(tip.h===res.hs&&tip.a===res.as)return{pts:3,label:'Exakt'};const tT=Math.sign(tip.h-tip.a),tR=Math.sign(res.hs-res.as);if(tT===tR)return{pts:1,label:'Tendenz'};return{pts:0,label:'Daneben'};}
+function aiPickFor(fx){const c=lsGet('wm26_aipick_'+fx.id);if(c)return c;const{model}=quickPredict(fx);const[h,a]=model.top[0].score.split(':').map(Number);return{h,a};}
+function renderRanking(){const finished=STATE.fixtures.filter(f=>f.status==='finished');let myPts=0,myTips=0,myHit=0,aiPts=0,aiTips=0,aiHit=0;const rows=[];finished.forEach(fx=>{const res={hs:fx.hs,as:fx.as};const ai=aiPickFor(fx);const aiScore=scoreTip(ai,res);aiPts+=aiScore.pts;aiTips++;if(aiScore.pts===3)aiHit++;const tip=lsGet('wm26_tip_'+fx.id);let myRow='—',myScoreLabel='';if(tip){const s=scoreTip(tip,res);myPts+=s.pts;myTips++;if(s.pts===3)myHit++;myRow=`${tip.h}:${tip.a}`;myScoreLabel=`${s.pts}P`;}rows.push({fx,res:`${fx.hs}:${fx.as}`,my:myRow,myScoreLabel,ai:`${ai.h}:${ai.a}`,aiP:`${aiScore.pts}P`});});const acc=(hit,n)=>n?Math.round(hit/n*100):0;const view=$('#rankView');if(!finished.length){view.innerHTML='<div class="empty-state"><b>Noch keine Auswertung</b>Sobald Spiele beendet sind, erscheint dein Punktestand.</div>';return;}view.innerHTML=`<div class="rank-grid"><div class="rank-kpi"><div class="k">Meine Punkte</div><div class="v accent">${myPts}</div></div><div class="rank-kpi"><div class="k">Meine Tipps</div><div class="v">${myTips}</div></div><div class="rank-kpi"><div class="k">Trefferquote</div><div class="v">${acc(myHit,myTips)}%</div></div><div class="rank-kpi"><div class="k">KI Punkte</div><div class="v">${aiPts}</div></div><div class="rank-kpi"><div class="k">KI Trefferquote</div><div class="v">${acc(aiHit,aiTips)}%</div></div></div><table class="rank-table"><tr><th>Spiel</th><th>Endstand</th><th>Mein Tipp</th><th></th><th>KI-Tipp</th><th></th></tr>${rows.map(r=>`<tr><td>${flag(r.fx.home)} ${esc(r.fx.home)} – ${esc(r.fx.away)} ${flag(r.fx.away)}</td><td><b>${r.res}</b></td><td>${r.my}</td><td><span class="muted">${r.myScoreLabel}</span></td><td>${r.ai}</td><td><span class="muted">${r.aiP}</span></td></tr>`).join('')}</table>`;}
+function setTab(t){STATE.tab=t;renderTabs();renderGrid();}
+function setGroup(g){STATE.group=g;renderTabs();renderGrid();}
+function closeModal(){$('#overlay').classList.remove('open');$('#modal').classList.remove('open');}
+function openSettings(){renderSettings();$('#drawerOverlay').classList.add('open');$('#drawer').classList.add('open');}
+function closeSettings(){$('#drawerOverlay').classList.remove('open');$('#drawer').classList.remove('open');}
+function renderSettings(){const q=lsGet(K.quota);const w=Math.round(marketWeight()*100);const field=(id,label,val,hint)=>`<div class="field"><label>${label}</label><div class="in-row"><input class="txt" id="in_${id}" type="password" value="${esc(val)}" placeholder="••••••••" autocomplete="off"><button class="btn ghost sm" onclick="testKey('${id}')">Test</button></div><div class="ktest" id="test_${id}"></div><div class="hint">${hint}</div></div>`;$('#drawerBody').innerHTML=`${field('football','API-Football Key',keys().football,'Kostenlos bei <a href="https://www.api-football.com/" target="_blank">api-football.com</a> (100/Tag). Spielplan, Verletzungen, Quoten.')}${field('gnews','GNews Key',keys().gnews,'Kostenlos bei <a href="https://gnews.io/" target="_blank">gnews.io</a> (100/Tag). Team-News.')}${field('claude','Claude API Key',keys().claude,'<a href="https://console.anthropic.com/" target="_blank">console.anthropic.com</a>. Für KI-Analyse.')}<div class="divider"></div><div class="field"><label>Modell-Gewichtung</label><div class="weight-label"><span>Poisson ${100-w}%</span><span>Markt ${w}%</span></div><div class="slider-row"><input type="range" min="0" max="100" value="${w}" id="wSlider" oninput="onWeight(this.value)"></div></div><div class="divider"></div><div class="field"><label>API-Budget</label><div class="budget">${q?`Verbleibend: <b>${q.remaining}</b> (${esc(q.day)})`:'Noch keine Anfrage.'}</div></div><div class="divider"></div><div class="field"><button class="btn ghost sm" onclick="clearCache()">Cache leeren</button> <button class="btn ghost sm" onclick="clearKeys()">Keys löschen</button></div>`;}
+function persistKey(id){const map={football:K.apiFootball,gnews:K.gnews,claude:K.claude};lsSetRaw(map[id],$('#in_'+id).value.trim());updateApiPip();}
+function onWeight(v){lsSet(K.weight,Number(v)/100);renderSettings();$('#wSlider').focus();}
+async function testKey(id){persistKey(id);const el=$('#test_'+id);el.className='ktest run';el.textContent='Teste…';try{if(id==='football'){const r=await apiFootball('/status');const acc=r?.account?.firstname?` (${r.account.firstname})`:''  ;const q=lsGet(K.quota);el.className='ktest ok';el.textContent=`✓ Verbunden${acc}${q?` · ${q.remaining} übrig`:''}`;} else if(id==='gnews'){const res=await fetch(`${CFG.gnewsBase}/search?q=football&max=1&token=${keys().gnews}`);if(!res.ok)throw new Error('HTTP '+res.status);el.className='ktest ok';el.textContent='✓ Verbunden';} else if(id==='claude'){await callClaude('Reply with: ok');el.className='ktest ok';el.textContent='✓ Verbunden';}}catch(e){el.className='ktest err';el.textContent='✗ '+e.message;}}
+function clearCache(){Object.keys(localStorage).filter(k=>k.startsWith('wm26_fixtures')||k.startsWith('wm26_standings')||k.startsWith('wm26_match_')||k.startsWith('wm26_news_')).forEach(k=>localStorage.removeItem(k));STATE.predCache={};refreshData();}
+function clearKeys(){if(!confirm('Alle API-Keys löschen?'))return;[K.apiFootball,K.gnews,K.claude].forEach(k=>localStorage.removeItem(k));renderSettings();updateApiPip();renderSetupGuide();}
+function updateApiPip(){const pip=$('#apiPip');const k=keys();if(k.football&&k.claude){pip.className='api-pip ok';}else if(k.football||k.claude||k.gnews){pip.className='api-pip';}else{pip.className='api-pip off';}}
+function renderSetupGuide(){const k=keys();if(k.football||k.claude){$('#setupGuide').innerHTML='';return;}$('#setupGuide').innerHTML=`<div class="setup"><h3>Willkommen &mdash; so wird das Tool scharfgeschaltet</h3><p>Du siehst Demo-Daten. Für Live-Daten und KI-Analyse trage API-Keys ein:</p><ol><li><a href="https://www.api-football.com/" target="_blank">api-football.com</a> → Key kopieren (100/Tag gratis)</li><li>Optional: <a href="https://gnews.io/" target="_blank">gnews.io</a> für Team-News</li><li><a href="https://console.anthropic.com/" target="_blank">console.anthropic.com</a> für Claude-KI</li><li>Oben rechts <b>API Keys</b> → eintragen → Test</li></ol><p style="margin-top:10px"><button class="btn sm" onclick="openSettings()">API Keys eintragen</button></p></div>`;}
+function updateBanner(){const live=STATE.fixtures.filter(f=>f.status==='live').length;const fin=STATE.fixtures.filter(f=>f.status==='finished').length;const total=STATE.fixtures.length;$('#bannerDay').textContent=live?`${live} Spiel${live>1?'e':''} LIVE`:`${fin}/${total} gespielt`;$('#bannerProgress').textContent=keys().football?'Live-Daten aktiv':'Demo-Modus';}
+async function refreshData(){STATE.predCache={};const[fixtures,standings]=await Promise.all([fetchFixtures(),fetchStandings()]);STATE.fixtures=fixtures;STATE.strengths=computeStrengths(standings);fixtures.filter(f=>f.status==='finished').forEach(fx=>{if(!lsGet('wm26_aipick_'+fx.id)){const{model}=quickPredict(fx);const[h,a]=model.top[0].score.split(':').map(Number);lsSet('wm26_aipick_'+fx.id,{h,a});}});renderTabs();renderGrid();updateBanner();renderSetupGuide();updateApiPip();}
+window.addEventListener('DOMContentLoaded',refreshData);
+Object.assign(window,{openSettings,closeSettings,refreshData,openMatch,closeModal,setTab,setGroup,runAI,saveTip,testKey,onWeight,clearCache,clearKeys});
+</script>
+</body>
+</html>
