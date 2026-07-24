@@ -1,0 +1,615 @@
+import { useReducer, useCallback, useRef, useEffect } from 'react';
+import * as GmailService from '@services/GmailService';
+import * as ClaudeService from '@services/ClaudeService';
+import * as SpeechService from '@services/SpeechService';
+import * as WhisperService from '@services/WhisperService';
+import * as Haptics from '@services/HapticsService';
+import * as Prefs from '@services/PrefsService';
+import { getValidToken } from '@services/TokenService';
+import { getProvider } from '@services/KeysService';
+
+const MAX_FULL_READ_CHARS = 2000;
+
+const HELP_TEXT =
+  'Sage: Vorlesen, Weiter, Fertig, Vollständig, Antworten, Absenden, Nochmal, Schneller oder Langsamer.';
+
+export const VOICE_STATE = {
+  IDLE: 'IDLE',
+  LISTENING: 'LISTENING',
+  LOADING: 'LOADING',
+  ANNOUNCING: 'ANNOUNCING',
+  CONFIRMING: 'CONFIRMING',
+  SUMMARIZING: 'SUMMARIZING',
+  READING: 'READING',
+  REPLY_PROMPT: 'REPLY_PROMPT',
+  RECORDING: 'RECORDING',
+  CLEANING: 'CLEANING',
+  REVIEW: 'REVIEW',
+  SENDING: 'SENDING',
+  DONE: 'DONE',
+  ERROR: 'ERROR',
+};
+
+const INITIAL = {
+  voiceState: VOICE_STATE.IDLE,
+  emails: [],
+  currentIndex: 0,
+  emailCount: 0,
+  currentSummary: null,
+  pendingReply: null,
+  error: null,
+  authError: false,
+  lastFilter: null,
+};
+
+function reducer(state, action) {
+  switch (action.type) {
+    case 'SET_STATE':
+      return { ...state, voiceState: action.state, error: null };
+    case 'SET_EMAILS':
+      return { ...state, emails: action.emails, currentIndex: 0, emailCount: action.emails.length };
+    case 'SET_INDEX':
+      return { ...state, currentIndex: action.index };
+    case 'SET_SUMMARY':
+      return { ...state, currentSummary: action.summary };
+    case 'SET_REPLY':
+      return { ...state, pendingReply: action.reply };
+    case 'SET_LAST_FILTER':
+      return { ...state, lastFilter: action.filter };
+    case 'SET_ERROR':
+      return { ...state, voiceState: VOICE_STATE.ERROR, error: action.error, authError: !!action.authError };
+    case 'RESET':
+      return { ...INITIAL, lastFilter: state.lastFilter };
+    default:
+      return state;
+  }
+}
+
+export function useVoiceFlow() {
+  const [state, dispatch] = useReducer(reducer, INITIAL);
+  const sessionRef = useRef(0);
+
+  useEffect(() => {
+    Prefs.getSpeechRate().then((rate) => SpeechService.setSpeechRate(rate));
+    Prefs.getLastFilter().then((filter) => {
+      if (filter) dispatch({ type: 'SET_LAST_FILTER', filter });
+    });
+  }, []);
+
+  const setState = (s) => dispatch({ type: 'SET_STATE', state: s });
+
+  const stopFlow = useCallback(() => {
+    sessionRef.current++;
+    SpeechService.stopSpeaking();
+    WhisperService.cancelRecording();
+    _stopRecordingCallback = null;
+    dispatch({ type: 'SET_STATE', state: VOICE_STATE.IDLE });
+  }, []);
+
+  // Called by VoiceButton when state === RECORDING — finishes dictation
+  const triggerStopRecording = useCallback(() => {
+    _stopRecordingCallback?.();
+  }, []);
+
+  const startFlow = useCallback(async () => {
+    const sessionId = ++sessionRef.current;
+    const alive = () => sessionRef.current === sessionId;
+    await _runFlow(null, alive, dispatch, setState);
+  }, []);
+
+  const quickStart = useCallback(async (filters) => {
+    const sessionId = ++sessionRef.current;
+    const alive = () => sessionRef.current === sessionId;
+    await _runFlow(filters, alive, dispatch, setState);
+  }, []);
+
+  const reset = useCallback(() => {
+    sessionRef.current++;
+    dispatch({ type: 'RESET' });
+  }, []);
+
+  return { state, startFlow, quickStart, stopFlow, triggerStopRecording, reset };
+}
+
+// Module-level: set by handleReply, called by triggerStopRecording in the hook
+let _stopRecordingCallback = null;
+
+// ─── Top-level flow ───────────────────────────────────────────────────────────
+
+async function _runFlow(presetFilters, alive, dispatch, setState) {
+  try {
+    let filters = presetFilters;
+
+    if (!filters) {
+      setState(VOICE_STATE.LISTENING);
+      await SpeechService.speak('Welche Mails möchtest du hören?');
+      if (!alive()) return;
+
+      const transcript = await SpeechService.listenOnce('de-AT', 10000);
+      if (!alive()) return;
+
+      const { intent, filters: voiceFilters } = SpeechService.parseVoiceCommand(transcript);
+      if (intent !== 'FILTER' && intent !== 'CONFIRM') {
+        await SpeechService.speak(
+          'Das habe ich nicht verstanden. Sag zum Beispiel: Mails von heute.'
+        );
+        if (alive()) setState(VOICE_STATE.IDLE);
+        return;
+      }
+      filters = voiceFilters ?? {};
+    }
+
+    await _fetchAndIterate(filters, alive, dispatch, setState);
+  } catch (err) {
+    if (!alive()) return;
+    const msg =
+      err.message === 'TIMEOUT'
+        ? 'Zeitüberschreitung. Bitte erneut versuchen.'
+        : err.message;
+    dispatch({ type: 'SET_ERROR', error: msg });
+    Haptics.hapticError();
+    SpeechService.speak('Es ist ein Fehler aufgetreten. Bitte erneut versuchen.').catch(() => {});
+  }
+}
+
+async function _fetchAndIterate(filters, alive, dispatch, setState) {
+  dispatch({ type: 'SET_LAST_FILTER', filter: filters });
+  Prefs.saveLastFilter(filters).catch(() => {});
+
+  setState(VOICE_STATE.LOADING);
+  await SpeechService.speak(`Ich lade ${_filterLabel(filters)}…`);
+  if (!alive()) return;
+
+  let token;
+  try {
+    token = await getValidToken();
+  } catch {
+    if (!alive()) return;
+    dispatch({ type: 'SET_ERROR', error: 'Anmeldung abgelaufen.', authError: true });
+    Haptics.hapticError();
+    SpeechService.speak('Deine Anmeldung ist abgelaufen. Bitte melde dich erneut an.').catch(() => {});
+    return;
+  }
+  if (!alive()) return;
+
+  // Announce if the network is slow so there's no silent dead-air
+  const slowNetTimer = setTimeout(() => {
+    if (alive()) SpeechService.speak('Verbindung ist langsam, einen Moment…').catch(() => {});
+  }, 5000);
+
+  let emails;
+  try {
+    emails = await GmailService.fetchEmails(token, filters);
+  } catch (err) {
+    clearTimeout(slowNetTimer);
+    if (!alive()) return;
+    const isNetworkErr = err.message.includes('Zeitüberschreitung') || err.message.includes('Network') || err.name === 'TypeError';
+    throw isNetworkErr ? new Error('Kein Netz. Bitte fahre in ein Gebiet mit Empfang und versuche es erneut.') : err;
+  }
+  clearTimeout(slowNetTimer);
+  if (!alive()) return;
+
+  dispatch({ type: 'SET_EMAILS', emails });
+
+  if (!emails.length) {
+    await _handleNoEmails(alive, dispatch, setState);
+    return;
+  }
+
+  Haptics.hapticSelect();
+  const count = emails.length;
+  await SpeechService.speak(`${count} Mail${count > 1 ? 's' : ''} gefunden.`);
+  if (!alive()) return;
+
+  await iterateEmails(emails, 0, dispatch, setState, alive);
+}
+
+// After "no emails found": offer voice retry with new filter
+async function _handleNoEmails(alive, dispatch, setState) {
+  setState(VOICE_STATE.LISTENING);
+  await SpeechService.speak(
+    'Keine Mails gefunden. Welchen Filter möchtest du versuchen?'
+  );
+  if (!alive()) return;
+
+  try {
+    const transcript = await SpeechService.listenOnce('de-AT', 8000);
+    if (!alive()) return;
+    const { intent, filters } = SpeechService.parseVoiceCommand(transcript);
+
+    if (intent === 'FILTER') {
+      await _fetchAndIterate(filters ?? {}, alive, dispatch, setState);
+      return;
+    }
+  } catch {}
+
+  if (alive()) {
+    await SpeechService.speak('Okay, auf Wiederhören.');
+    setState(VOICE_STATE.IDLE);
+  }
+}
+
+// ─── Email iterator ───────────────────────────────────────────────────────────
+
+async function iterateEmails(emails, index, dispatch, setState, alive) {
+  if (!alive()) return;
+  if (index >= emails.length) {
+    await SpeechService.speak('Das waren alle Mails. Auf Wiederhören!');
+    if (alive()) setState(VOICE_STATE.DONE);
+    return;
+  }
+
+  const email = emails[index];
+  dispatch({ type: 'SET_INDEX', index });
+  setState(VOICE_STATE.ANNOUNCING);
+
+  const sender = GmailService.extractSenderName(email.from);
+  const position = emails.length > 1 ? `Mail ${index + 1} von ${emails.length}: ` : '';
+  const attachNote =
+    email.attachments.length > 0
+      ? `, mit ${email.attachments.length} Anhang${email.attachments.length > 1 ? 'anhängen' : ''}`
+      : '';
+  await SpeechService.speak(
+    `${position}Von ${sender}, Betreff: ${email.subject}${attachNote}. Vorlesen?`
+  );
+  if (!alive()) return;
+
+  setState(VOICE_STATE.CONFIRMING);
+
+  let command;
+  for (;;) {
+    try {
+      const response = await SpeechService.listenOnce('de-AT', 7000);
+      if (!alive()) return;
+      command = SpeechService.parseVoiceCommand(response);
+    } catch {
+      if (!alive()) return;
+      await SpeechService.speak('Nochmal: Vorlesen?');
+      try {
+        const retry = await SpeechService.listenOnce('de-AT', 6000);
+        if (!alive()) return;
+        command = SpeechService.parseVoiceCommand(retry);
+      } catch {
+        if (!alive()) return;
+        await SpeechService.speak('Okay, weiter.');
+        await iterateEmails(emails, index + 1, dispatch, setState, alive);
+        return;
+      }
+    }
+
+    if (command.intent === 'FASTER') {
+      SpeechService.adjustSpeechRate(0.15);
+      Prefs.saveSpeechRate(SpeechService.getSpeechRate()).catch(() => {});
+      await SpeechService.speak('Schneller. Vorlesen?');
+      if (!alive()) return;
+      continue;
+    }
+    if (command.intent === 'SLOWER') {
+      SpeechService.adjustSpeechRate(-0.15);
+      Prefs.saveSpeechRate(SpeechService.getSpeechRate()).catch(() => {});
+      await SpeechService.speak('Langsamer. Vorlesen?');
+      if (!alive()) return;
+      continue;
+    }
+    if (command.intent === 'HELP') {
+      await SpeechService.speak(HELP_TEXT);
+      if (!alive()) return;
+      continue;
+    }
+    break;
+  }
+
+  if (command.intent === 'CONFIRM') {
+    Haptics.hapticSelect();
+    await handleReadEmail(emails, index, email, dispatch, setState, alive);
+  } else if (command.intent === 'NEXT') {
+    await iterateEmails(emails, index + 1, dispatch, setState, alive);
+  } else if (command.intent === 'STOP') {
+    await SpeechService.speak('Okay, ich beende. Auf Wiederhören!');
+    if (alive()) setState(VOICE_STATE.DONE);
+  } else {
+    await SpeechService.speak('Vorlesen, weiter, oder fertig?');
+    await iterateEmails(emails, index, dispatch, setState, alive);
+  }
+}
+
+// ─── Read email ───────────────────────────────────────────────────────────────
+
+async function handleReadEmail(emails, index, email, dispatch, setState, alive) {
+  if (!alive()) return;
+
+  // Empty body guard — no point summarizing if there's no text
+  if (!email.body || email.body.trim().length < 15) {
+    await SpeechService.speak('Diese Mail hat keinen lesbaren Text. Antworten oder weiter?');
+    if (!alive()) return;
+    setState(VOICE_STATE.CONFIRMING);
+    try {
+      const resp = await SpeechService.listenOnce('de-AT', 7000);
+      if (!alive()) return;
+      if (SpeechService.parseVoiceCommand(resp).intent === 'REPLY') {
+        await handleReply(emails, index, email, dispatch, setState, alive);
+        return;
+      }
+    } catch {}
+    await iterateEmails(emails, index + 1, dispatch, setState, alive);
+    return;
+  }
+
+  setState(VOICE_STATE.SUMMARIZING);
+  await SpeechService.speak('Ich fasse zusammen…');
+  if (!alive()) return;
+
+  let summary;
+  try {
+    summary = await ClaudeService.summarizeEmail(email.body, email.from, email.subject);
+  } catch (err) {
+    if (!alive()) return;
+    if (err.message === 'QUOTA_EXCEEDED') {
+      await SpeechService.speak('Dein OpenAI-Guthaben ist aufgebraucht. Bitte lade es unter platform.openai.com auf.');
+      if (alive()) setState(VOICE_STATE.ERROR);
+      return;
+    }
+    throw err;
+  }
+  if (!alive()) return;
+
+  dispatch({ type: 'SET_SUMMARY', summary });
+
+  setState(VOICE_STATE.READING);
+  await SpeechService.speak(summary);
+  if (!alive()) return;
+
+  // Mark as read after the summary has actually been heard, not before
+  getValidToken()
+    .then((t) => GmailService.markAsRead(t, email.id))
+    .catch(() => {});
+
+  await SpeechService.speak('Vollständig vorlesen, antworten, oder weiter?');
+  if (!alive()) return;
+  setState(VOICE_STATE.CONFIRMING);
+
+  let command;
+  for (;;) {
+    try {
+      const action = await SpeechService.listenOnce('de-AT', 7000);
+      if (!alive()) return;
+      command = SpeechService.parseVoiceCommand(action);
+    } catch {
+      if (!alive()) return;
+      await iterateEmails(emails, index + 1, dispatch, setState, alive);
+      return;
+    }
+
+    if (command.intent === 'FASTER') {
+      SpeechService.adjustSpeechRate(0.15);
+      Prefs.saveSpeechRate(SpeechService.getSpeechRate()).catch(() => {});
+      await SpeechService.speak('Schneller. Vollständig, antworten, oder weiter?');
+      if (!alive()) return;
+      continue;
+    }
+    if (command.intent === 'SLOWER') {
+      SpeechService.adjustSpeechRate(-0.15);
+      Prefs.saveSpeechRate(SpeechService.getSpeechRate()).catch(() => {});
+      await SpeechService.speak('Langsamer. Vollständig, antworten, oder weiter?');
+      if (!alive()) return;
+      continue;
+    }
+    if (command.intent === 'REPEAT') {
+      setState(VOICE_STATE.READING);
+      await SpeechService.speak(summary);
+      if (!alive()) return;
+      await SpeechService.speak('Vollständig vorlesen, antworten, oder weiter?');
+      if (!alive()) return;
+      setState(VOICE_STATE.CONFIRMING);
+      continue;
+    }
+    if (command.intent === 'HELP') {
+      await SpeechService.speak(HELP_TEXT);
+      if (!alive()) return;
+      continue;
+    }
+    break;
+  }
+
+  if (command.intent === 'READ_FULL') {
+    setState(VOICE_STATE.READING);
+    const truncated = email.body.length > MAX_FULL_READ_CHARS;
+    const readBody = truncated ? email.body.slice(0, MAX_FULL_READ_CHARS) : email.body;
+    if (truncated) {
+      await SpeechService.speak('Die E-Mail ist lang. Ich lese die ersten zweitausend Zeichen vor.');
+      if (!alive()) return;
+    }
+    await SpeechService.speak(readBody);
+    if (!alive()) return;
+    await SpeechService.speak('Antworten oder weiter?');
+    if (!alive()) return;
+    setState(VOICE_STATE.CONFIRMING);
+    try {
+      const next = await SpeechService.listenOnce('de-AT', 7000);
+      if (!alive()) return;
+      if (SpeechService.parseVoiceCommand(next).intent === 'REPLY') {
+        await handleReply(emails, index, email, dispatch, setState, alive);
+        return;
+      }
+    } catch {}
+    await iterateEmails(emails, index + 1, dispatch, setState, alive);
+  } else if (command.intent === 'REPLY') {
+    await handleReply(emails, index, email, dispatch, setState, alive);
+  } else {
+    await iterateEmails(emails, index + 1, dispatch, setState, alive);
+  }
+}
+
+// ─── Dictate + send reply ─────────────────────────────────────────────────────
+
+async function handleReply(emails, index, email, dispatch, setState, alive) {
+  if (!alive()) return;
+
+  setState(VOICE_STATE.REPLY_PROMPT);
+
+  const provider = await getProvider();
+  const useWhisper = provider === 'openai';
+
+  if (useWhisper) {
+    await SpeechService.speak('Okay, Aufnahme läuft. Tippe wenn du fertig bist.');
+  } else {
+    await SpeechService.speak('Okay, ich nehme deine Antwort auf. Bitte sprich jetzt.');
+  }
+  Haptics.hapticConfirm();
+  if (!alive()) return;
+
+  setState(VOICE_STATE.RECORDING);
+  let rawDictation;
+
+  if (useWhisper) {
+    rawDictation = await _whisperDictate(alive);
+  } else {
+    try {
+      rawDictation = await SpeechService.listenOnce('de-AT', 30000);
+      if (!alive()) return;
+    } catch {
+      rawDictation = null;
+    }
+  }
+
+  if (!rawDictation || !alive()) {
+    if (alive()) {
+      Haptics.hapticError();
+      await SpeechService.speak('Aufnahme fehlgeschlagen. Ich überspringe diese Mail.');
+      await iterateEmails(emails, index + 1, dispatch, setState, alive);
+    }
+    return;
+  }
+
+  setState(VOICE_STATE.CLEANING);
+  await SpeechService.speak('Ich verbessere deine Antwort…');
+  if (!alive()) return;
+
+  let cleanReply;
+  try {
+    cleanReply = await ClaudeService.cleanupDictation(rawDictation);
+  } catch (err) {
+    if (!alive()) return;
+    if (err.message === 'QUOTA_EXCEEDED') {
+      await SpeechService.speak('Dein OpenAI-Guthaben ist aufgebraucht. Bitte lade es unter platform.openai.com auf.');
+      if (alive()) setState(VOICE_STATE.ERROR);
+      return;
+    }
+    throw err;
+  }
+  if (!alive()) return;
+
+  dispatch({ type: 'SET_REPLY', reply: cleanReply });
+  setState(VOICE_STATE.REVIEW);
+  await SpeechService.speak('So klingt deine Antwort:');
+  if (!alive()) return;
+  await SpeechService.speak(cleanReply);
+  if (!alive()) return;
+  await SpeechService.speak('Absenden?');
+  if (!alive()) return;
+
+  setState(VOICE_STATE.CONFIRMING);
+  let confirmCmd;
+  try {
+    const confirm = await SpeechService.listenOnce('de-AT', 7000);
+    if (!alive()) return;
+    confirmCmd = SpeechService.parseVoiceCommand(confirm);
+  } catch {
+    if (!alive()) return;
+    await SpeechService.speak('Antwort verworfen.');
+    await iterateEmails(emails, index + 1, dispatch, setState, alive);
+    return;
+  }
+
+  if (confirmCmd.intent === 'SEND' || confirmCmd.intent === 'CONFIRM') {
+    setState(VOICE_STATE.SENDING);
+    const token = await getValidToken();
+    if (!alive()) return;
+
+    // Reply-To takes priority over From (mailing lists, no-reply addresses)
+    const replyAddress = email.replyTo || email.from;
+    try {
+      await GmailService.sendReply(token, {
+        threadId: email.threadId,
+        messageId: email.messageId,
+        to: replyAddress,
+        subject: email.subject,
+        body: cleanReply,
+      });
+      if (!alive()) return;
+      Haptics.hapticSent();
+      await SpeechService.speak('Antwort wurde gesendet.');
+    } catch {
+      if (!alive()) return;
+      // Send failed — save as draft so the dictation is not lost
+      try {
+        await GmailService.saveDraft(token, {
+          threadId: email.threadId,
+          messageId: email.messageId,
+          to: replyAddress,
+          subject: email.subject,
+          body: cleanReply,
+        });
+        await SpeechService.speak('Senden fehlgeschlagen. Ich habe die Antwort als Entwurf gespeichert.');
+      } catch {
+        await SpeechService.speak('Senden fehlgeschlagen. Entwurf konnte nicht gespeichert werden.');
+      }
+    }
+  } else {
+    await SpeechService.speak('Antwort verworfen.');
+  }
+
+  if (!alive()) return;
+  await iterateEmails(emails, index + 1, dispatch, setState, alive);
+}
+
+// ─── Whisper dictation ────────────────────────────────────────────────────────
+
+// Starts Whisper recording; resolves when user taps stop or after 90s auto-stop.
+// Returns the transcribed text, or null if aborted/failed.
+async function _whisperDictate(alive) {
+  const AUTO_STOP_MS = 90000;
+
+  try {
+    await WhisperService.startRecording();
+  } catch {
+    return null;
+  }
+
+  return new Promise((resolve) => {
+    let settled = false;
+
+    const finish = async () => {
+      if (settled) return;
+      settled = true;
+      _stopRecordingCallback = null;
+      clearTimeout(timer);
+      try {
+        const text = await WhisperService.stopAndTranscribe();
+        resolve(alive() ? text : null);
+      } catch (err) {
+        if (err.message === 'KURZE_AUFNAHME') {
+          // Accidental tap — tell user and resolve null so flow can recover
+          if (alive()) SpeechService.speak('Aufnahme zu kurz. Bitte halte den Knopf gedrückt und sprich.').catch(() => {});
+        }
+        resolve(null);
+      }
+    };
+
+    _stopRecordingCallback = finish;
+
+    const timer = setTimeout(finish, AUTO_STOP_MS);
+  });
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function _filterLabel(filters) {
+  if (filters.unreadOnly && filters.timeFilter === 'heute') return 'ungelesene Mails von heute';
+  if (filters.unreadOnly) return 'ungelesene Mails';
+  if (filters.timeFilter === 'heute') return 'Mails von heute';
+  if (filters.timeFilter === 'gestern') return 'Mails von gestern';
+  if (filters.sender) return `Mails von ${filters.sender}`;
+  if (filters.keyword) return `Mails zum Thema ${filters.keyword}`;
+  return 'alle Mails';
+}

@@ -1,0 +1,16 @@
+export const STRINGS = {
+  IDLE: 'Tippe zum Starten',
+  LISTENING: 'Ich höre zu…',
+  LOADING: 'Lade Mails…',
+  ANNOUNCING: 'Ankündigung…',
+  CONFIRMING: 'Warte auf Antwort…',
+  SUMMARIZING: 'Zusammenfassung wird erstellt…',
+  READING: 'Vorlesen…',
+  REPLY_PROMPT: 'Bereit zur Aufnahme…',
+  RECORDING: 'Aufnahme läuft…',
+  CLEANING: 'Antwort wird verbessert…',
+  REVIEW: 'Überprüfung…',
+  SENDING: 'Sende…',
+  DONE: 'Fertig',
+  ERROR: 'Fehler aufgetreten',
+};
