@@ -54,9 +54,9 @@ Drei in sich schlüssige Optionen stehen zur Wahl — [ausführlich hier](00-spa
 | [`02-produkt/`](02-produkt/) | Kap. 8–10: PRD, MVP, Feature Backlog | ⏳ offen |
 | [`03-technik-compliance/`](03-technik-compliance/) | Kap. 11–16: Systemarchitektur, Datenmodell, Rollen & Rechte, Datenschutz, Sicherheit, Hardware | ⏳ offen |
 | [`04-erlebnis-ki/`](04-erlebnis-ki/) | Kap. 17–21: UX, Gesprächsdesign, KI-Memory, Integrationen, API | ⏳ offen |
-| [`05-business/`](05-business/) | Kap. 22–27: Roadmap, Wettbewerb, Business Model Canvas, Monetarisierung, GTM, Finanzplanung | ⏳ offen |
+| [`05-business/`](05-business/) | Kap. 22–27 + 37: Roadmap, Wettbewerb, Business Model Canvas, Monetarisierung, GTM, Finanzplanung, Förderstrategie | ⏳ offen |
 | [`06-risiko-kapital/`](06-risiko-kapital/) | Kap. 28–36: Risiken, offene Entscheidungen, Investoren-Pitch + Zusatzkapitel | ⏳ offen |
-| [`anhang/`](anhang/) | Entscheidungsregister, Annahmenregister, Quellen, Glossar | 🔄 wächst mit |
+| [`anhang/`](anhang/) | Entscheidungsregister, Annahmenregister, Quellen, Förderrecherche-Prompt | 🔄 wächst mit |
 
 ---
 
@@ -74,9 +74,19 @@ Drei in sich schlüssige Optionen stehen zur Wahl — [ausführlich hier](00-spa
 
 **Risiko & Kapital** — 28 Risiken · 29 Offene Produktentscheidungen · 30 Investoren-Pitch
 
-**Ergänzt gegenüber dem Ausgangsbriefing** — 31 Notfall-Eskalation & Haftung · 32 Klinische Evidenz & Studiendesign · 33 Content-Sicherheit & Schutz vor Ausnutzung · 34 Barrierefreiheit & sprachliche Realität · 35 Ethikbeirat & Governance · 36 Sterbefall, Datenerbe & Offboarding
+**Ergänzt gegenüber dem Ausgangsbriefing** — 31 Notfall-Eskalation & Haftung · 32 Klinische Evidenz & Studiendesign · 33 Content-Sicherheit & Schutz vor Ausnutzung · 34 Barrierefreiheit & sprachliche Realität · 35 Ethikbeirat & Governance · 36 Sterbefall, Datenerbe & Offboarding · 37 Förderstrategie & öffentliche Finanzierung
 
-Warum diese sechs fehlten und warum jedes einzelne das Unternehmen beenden kann: [K11 in den Kill-Questions](00-sparring/00-kill-questions.md#k11--kapitel-die-im-briefing-fehlen-und-das-produkt-entscheiden).
+Warum die Kapitel 31–36 fehlten und warum jedes einzelne das Unternehmen beenden kann: [K11 in den Kill-Questions](00-sparring/00-kill-questions.md#k11--kapitel-die-im-briefing-fehlen-und-das-produkt-entscheiden).
+
+---
+
+## Öffentliche Förderung
+
+Der größte Einzeltopf für dieses Vorhaben liegt außerhalb der klassischen Startup-Förderung: Der **Innovationsfonds beim G-BA** vergibt 2026 allein 80 Mio. € für neue Versorgungsformen. Das übertrifft eine typische Seed-Runde — und erzeugt zugleich die Versorgungsevidenz, die für den DiPA-Weg ohnehin gebraucht wird. Der Zugang führt über eine Krankenkasse als Konsortialpartner und damit über genau den institutionellen Vertriebszugang, der einen der drei echten Burggräben bildet.
+
+Daraus folgt eine Reihenfolge, die nur in eine Richtung funktioniert: **Förderung vor Wagniskapital** ([ADR-009](anhang/entscheidungsregister.md#adr-009--öffentliche-förderung-vor-wagniskapital)). Eine zu frühe VC-Beteiligung kann den KMU-Status kosten, Vorgründungsprogramme schließen sich unwiderruflich, und der Anreizeffekt nach Art. 6 AGVO lässt einen Anspruch verfallen, sobald das Vorhaben vor der Antragstellung begonnen wurde.
+
+Für die vollständige Erhebung über Hamburg, Bund, EU, Sozialversicherung und Stiftungen: **[Förderrecherche-Prompt](anhang/foerderrecherche-prompt.md)** — bereit zum Einsatz in einer Deep-Research-KI, mit rund 45 vorrecherchierten Programmen zur Verifikation.
 
 ---
 

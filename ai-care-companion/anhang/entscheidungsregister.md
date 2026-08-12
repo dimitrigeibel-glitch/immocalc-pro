@@ -129,3 +129,25 @@ Jede Festlegung mit Wirkung über ein Kapitel hinaus steht hier — mit den **ve
 **Verworfen:** *Warten auf ein neues Repository* — hätte die Arbeit blockiert.
 
 **Migrationspfad:** Sobald ein leeres Repository `ai-care-companion` existiert, lässt sich das Verzeichnis mit vollständiger Historie per `git subtree split` übertragen. Die interne Verlinkung ist relativ und bleibt dabei intakt.
+
+---
+
+## ADR-009 — Öffentliche Förderung vor Wagniskapital
+
+**Status:** vorgeschlagen · **Datum:** 2026-08-04 · **Bezug:** Kap. 27, 37
+
+**Entscheidung:** Der Finanzierungsaufbau beginnt mit öffentlichen Fördermitteln. Wagniskapital wird erst aufgenommen, wenn die förderrechtlichen Weichen gestellt sind.
+
+**Kontext:** Die Reihenfolge ist keine Präferenz, sondern eine Einbahnstraße. Drei Mechanismen wirken nur in eine Richtung:
+
+- **KMU-Status** nach EU-Empfehlung 2003/361 — eine Beteiligung oberhalb der Schwellenwerte durch einen Nicht-KMU-Investor kann ihn kosten und damit ganze Programmfamilien schließen.
+- **Vorgründungsprogramme** — EXIST-Gründungsstipendium und InnoFounder setzen voraus, dass noch nicht bzw. erst kürzlich gegründet wurde. Dieses Fenster schließt sich unwiderruflich.
+- **Anreizeffekt nach Art. 6 AGVO** — beginnt das Vorhaben vor der Antragstellung, entfällt der Anspruch. Was als Vorhabenbeginn gilt, ist programmabhängig und betrifft bereits Verträge, Beschaffungen und Einstellungen.
+
+**Zusätzlicher Befund:** Der Innovationsfonds beim G-BA vergibt 2026 allein 80 Mio. € für neue Versorgungsformen. Das übertrifft eine typische Seed-Runde und erzeugt zugleich die Versorgungsevidenz, die für den DiPA-Weg (ADR-007) ohnehin gebraucht wird. Der Zugang führt über eine Krankenkasse als Konsortialpartner — und damit über genau den institutionellen Vertriebszugang, der nach K10 einen der drei echten Burggräben bildet.
+
+**Verworfen:**
+- *VC-Runde zuerst, Förderung später* — schließt Vorgründungsprogramme dauerhaft aus und gefährdet den KMU-Status.
+- *Ausschließlich Förderung* — Fördermittel finanzieren Entwicklung und Evidenz, aber keinen Vertriebsaufbau und keine Marktdurchdringung.
+
+**Nächster Schritt:** Recherche mit dem Prompt in [`foerderrecherche-prompt.md`](foerderrecherche-prompt.md). Bis zum Ergebnis bleibt diese Entscheidung `vorgeschlagen`.

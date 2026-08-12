@@ -68,6 +68,29 @@ Alle in dieser Dokumentation verwendeten Belege, nach Themen sortiert. Abrufdatu
 
 ---
 
+## Förderprogramme
+
+Vollständige Liste und Rechercheauftrag: [`foerderrecherche-prompt.md`](foerderrecherche-prompt.md)
+
+| Quelle | Verwendet für |
+|---|---|
+| [G-BA Innovationsfonds — Förderbekanntmachungen](https://innovationsfonds.g-ba.de/foerderbekanntmachungen/) | Verfahrensarten, Fristen |
+| [G-BA — Vier neue Förderbekanntmachungen neue Versorgungsformen](https://www.g-ba.de/presse/pressemitteilungen-meldungen/1312/) | Volumen 2026, Themenfelder |
+| [G-BA Innovationsfonds — FAQ zur Förderung](https://innovationsfonds.g-ba.de/service/faq/foerderung/) | Antragsvoraussetzungen |
+| [IFB Innovationsstarter](https://innovationsstarter.com/) | Hamburger Zuschussprogramme |
+| [IFB Hamburg — InnoFounder](https://www.ifbhh.de/foerderprogramm/innofounder) | Gründungsphase, Voraussetzungen |
+| [IFB Innovationsstarter — InnoRampUp](https://innovationsstarter.com/innorampup/) | DeepTech, bis 150.000 € |
+| [EXIST — Handbuch Forschungstransfer 2026 (PDF)](https://exist.de/wp-content/uploads/2024/10/260609_Handbuch_EFT_2026_barrierefrei.pdf) | Phasen, Förderhöhe, Eigenanteil |
+| [EXIST-Gründungsstipendium — Überblick](https://gruenderplattform.de/finanzierung-und-foerderung/exist-gruendungsstipendium) | Stipendiensätze, Sachausgaben |
+| [Horizon Europe — Arbeitsprogramm 2026–2027 Health (PDF)](https://research-and-innovation.ec.europa.eu/document/download/36c7287d-d38f-4a96-94ca-0dfce1375a48_en) | Primärquelle Cluster 1 |
+| [Horizon Europe NCP Portal — Health Calls 2026/2027](https://horizoneuropencpportal.eu/store/overview-health-calls-2026-and-2027-horizon-europe) | Fristen, Fördervolumen |
+| [FFG — Horizon Europe Cluster 1 Health](https://www.ffg.at/en/europa/heu/cluster1) | Strukturüberblick |
+| [BMFTR — Bekanntmachung Medizintechnik (06.02.2026)](https://www.bmftr.bund.de/SharedDocs/Bekanntmachungen/DE/2026/02/2026-02-06-bekanntmachung-medizintechnik.html) | Bundesförderung Medizintechnik |
+| [BMG — Förderrichtlinie Digitalkompetenz in der Versorgung (PDF)](https://www.bundesgesundheitsministerium.de/fileadmin/Dateien/3_Downloads/B/Bekanntmachungen/2026-05-20_FoeRiLi_Digitalkompetenz_in_der_Versorgung.pdf) | BMG-Förderlinie 2026 |
+| [BMG — Digitalisierungsstrategie Gesundheit und Pflege (PDF)](https://www.bundesgesundheitsministerium.de/fileadmin/Dateien/3_Downloads/D/Digitalisierungsstrategie/BMG_Broschuere_Digitalisierungsstrategie_bf.pdf) | Politischer Rahmen |
+
+---
+
 ## Noch zu beschaffende Quellen
 
 Für die folgenden Blöcke fehlen belastbare Belege. Sie werden im jeweiligen Kapitel ergänzt:

@@ -35,6 +35,13 @@ Jede Zahl in dieser Dokumentation ist entweder **belegt** (Quelle verlinkt) oder
 | A-27 | ElliQ-Programmteilnehmer NY (Mai 2025) | 834 von 3.500+ Bewerbern | 🟢 | NYSOFA | Kap. 23 |
 | A-28 | Alexa Together eingestellt | Mai 2025 | 🟢 | mehrere Quellen; Amazon nannte keinen offiziellen Grund | Kap. 23, 25 |
 | A-29 | Jährliche Sterberate in der Nutzerkohorte | unbekannt | 🔴 | Wirkt direkt auf Churn und LTV. **Muss aus Sterbetafeln nach Alter/Pflegegrad modelliert werden** | Kap. 27, 36 |
+| A-30 | Innovationsfonds G-BA, Volumen 2026 neue Versorgungsformen | 80 Mio. € | 🟢 | G-BA; zusätzlich 20 Mio. € Versorgungsforschung und 10 Mio. € kurze Laufzeit | Kap. 27, 37 |
+| A-31 | Innovationsfonds, Einreichfristen 2026 | 21.04. (zweistufig), 19.05. (einstufig lang), laufend bis 31.12. (einstufig kurz) | 🟢 | G-BA; **Fristen werden jährlich neu gesetzt, vor Planung prüfen** | Kap. 22, 37 |
+| A-32 | Krankenkasse als Konsortialpartner beim Innovationsfonds zwingend | vermutlich ja | 🔴 | **Nicht verifiziert. Entscheidet über die Machbarkeit des größten Einzeltopfes** | Kap. 26, 37 |
+| A-33 | Bewilligungsquoten der Förderprogramme | unbekannt | 🔴 | Ohne diese Größe ist keine Erwartungswertrechnung möglich | Kap. 27, 37 |
+| A-34 | Aufwand Antragstellung je Programm (Personentage) | unbekannt | 🔴 | Bei einem kleinen Team der eigentliche Engpass, nicht das Geld | Kap. 37 |
+| A-35 | Hamburger Zuschussprogramme sind untereinander nicht kombinierbar | trifft auf InnoFounder/InnoRampUp/InnoImpact/InnoFinTech zu | 🟢 | IFB Innovationsstarter | Kap. 37 |
+| A-36 | De-minimis-Obergrenze | 300.000 € über 3 Steuerjahre | 🟡 | VO (EU) 2023/2831. **Geltenden Stand verifizieren** | Kap. 27, 37 |
 
 ---
 
