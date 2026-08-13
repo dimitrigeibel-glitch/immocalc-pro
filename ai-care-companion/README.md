@@ -56,7 +56,7 @@ Drei in sich schlüssige Optionen stehen zur Wahl — [ausführlich hier](00-spa
 | [`04-erlebnis-ki/`](04-erlebnis-ki/) | Kap. 17–21: UX, Gesprächsdesign, KI-Memory, Integrationen, API | ⏳ offen |
 | [`05-business/`](05-business/) | Kap. 22–27 + 37: Roadmap, Wettbewerb, Business Model Canvas, Monetarisierung, GTM, Finanzplanung, Förderstrategie | ⏳ offen |
 | [`06-risiko-kapital/`](06-risiko-kapital/) | Kap. 28–36: Risiken, offene Entscheidungen, Investoren-Pitch + Zusatzkapitel | ⏳ offen |
-| [`anhang/`](anhang/) | Entscheidungsregister, Annahmenregister, Quellen, Förderrecherche-Prompt | 🔄 wächst mit |
+| [`anhang/`](anhang/) | Entscheidungsregister, Annahmenregister, Quellen, Förderrecherche-Prompt, Video-Prompt-Paket | 🔄 wächst mit |
 
 ---
 
@@ -87,6 +87,14 @@ Der größte Einzeltopf für dieses Vorhaben liegt außerhalb der klassischen St
 Daraus folgt eine Reihenfolge, die nur in eine Richtung funktioniert: **Förderung vor Wagniskapital** ([ADR-009](anhang/entscheidungsregister.md#adr-009--öffentliche-förderung-vor-wagniskapital)). Eine zu frühe VC-Beteiligung kann den KMU-Status kosten, Vorgründungsprogramme schließen sich unwiderruflich, und der Anreizeffekt nach Art. 6 AGVO lässt einen Anspruch verfallen, sobald das Vorhaben vor der Antragstellung begonnen wurde.
 
 Für die vollständige Erhebung über Hamburg, Bund, EU, Sozialversicherung und Stiftungen: **[Förderrecherche-Prompt](anhang/foerderrecherche-prompt.md)** — bereit zum Einsatz in einer Deep-Research-KI, mit rund 45 vorrecherchierten Programmen zur Verifikation.
+
+---
+
+## Kommunikation
+
+Der Nutzenfilm folgt derselben Haltung wie das Produkt: Die ältere Frau wird nie als bedürftig gezeigt, der emotionale Höhepunkt ist ein Kontakt zwischen zwei Menschen, und es wird keine Angst als Verkaufsmittel eingesetzt. Das Produkt selbst ist im ganzen Film eine Sekunde lang zu sehen — als Telefon, das klingelt.
+
+**[Video-Prompt-Paket](anhang/video-prompt-nutzenfilm.md)** — Master-Briefing, psychologisches Fundament, acht Einzel-Prompts für KI-Videogenerierung, Negativlisten und Cutdowns. Die Schlusszeile trägt die Positionierung: *Damit ihr wieder miteinander redet. Nicht übereinander.*
 
 ---
 
