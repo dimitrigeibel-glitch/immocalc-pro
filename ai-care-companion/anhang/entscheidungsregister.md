@@ -36,6 +36,8 @@ Jede Festlegung mit Wirkung über ein Kapitel hinaus steht hier — mit den **ve
 
 **Bewusst in Kauf genommen:** Keine passive Umgebungssensorik in Phase 1, damit keine Sturzerkennung. Schwächt das Hausnotruf-Argument zunächst und muss im GTM offen adressiert werden.
 
+**Nachtrag 2026-08-04 (Wettbewerbsrecherche, Kap. 23):** Die Entscheidung bleibt richtig, ihre strategische Bedeutung ändert sich. Sämtliche gefundenen Wettbewerber sind bereits telefonbasiert. Telefon-first ist damit **Eintrittsvoraussetzung, kein Differenzierungsmerkmal** — und darf in Pitch und Positionierung nicht länger als solches geführt werden.
+
 ---
 
 ## ADR-003 — Budgetierte Gesprächszeit statt unbegrenztem Dialog
@@ -115,6 +117,8 @@ Jede Festlegung mit Wirkung über ein Kapitel hinaus steht hier — mit den **ve
 - *DiPA zuerst* — Verzeichnis seit 2021 leer, Zulassungsdauer unkalkulierbar, kein Umsatz in der Zwischenzeit.
 
 **Offenes Risiko:** Warum ist in fünf Jahren keine einzige DiPA gelistet worden? Vor Aufnahme in die Roadmap mit BfArM und GKV-Spitzenverband klären (A-11).
+
+**Nachtrag 2026-08-04 (Wettbewerbsrecherche, Kap. 23):** Die Reihenfolge bleibt, ihre Gewichtung verschiebt sich nach vorn. Stufe 1 (Selbstzahler) ist kein ruhiges Lernfeld, sondern ein Preiswettbewerb mit mindestens fünf DACH-Anbietern und einer Untergrenze von 14,99 €. Zugleich wirbt **kein** Wettbewerber mit Kassenerstattung — der Kanal ist frei. Stufe 2 (§ 40 SGB XI) rückt damit von „mittelfristig" zu **strategischem Primärziel**; Stufe 1 dient nur noch der Datengewinnung, nicht dem Umsatzaufbau.
 
 ---
 

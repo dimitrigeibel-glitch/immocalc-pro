@@ -23,7 +23,11 @@ Jede Zahl in dieser Dokumentation ist entweder **belegt** (Quelle verlinkt) oder
 | A-15 | Telefonie ausgehend dt. Festnetz | ~€0,010/Min | 🟡 | Marktüblich, SIP-Trunk. Volumenrabatte nicht eingerechnet | Kap. 27 |
 | A-16 | **Gesamt-COGS pro Gesprächsminute (kaskadiert)** | **~€0,04** | 🟡 | Summe A-12 bis A-15. **Zentrale Planungsgröße — Messung im ersten Piloten hat höchste Priorität** | Kap. 2, 8, 9, 11, 27 |
 | A-17 | COGS pro Minute bei fertiger Realtime-Plattform | €0,10–0,14 | 🟢 | Marktvergleich 2026 | Kap. 11, 27 |
-| A-18 | Angesetzter Abopreis Familien-Selbstzahler | 34,90 €/Monat | 🔴 | **Reine Setzung. Zahlungsbereitschaft ist ungeprüft und muss vor dem Finanzplan getestet werden** | Kap. 25, 27 |
+| A-18 | Angesetzter Abopreis Familien-Selbstzahler | ~~34,90 €/Monat~~ **zu korrigieren** | 🔴 | **Überholt.** Der sichtbare Markt liegt bei 14,99 € (Helfi-Ruf) bis 29,90 € (inTouch) — die Annahme lag oberhalb aller Wettbewerber. Neuer Ansatz erst nach Preistest, siehe Kap. 23 | Kap. 23, 25, 27 |
+| A-37 | Wettbewerber-Preisspanne DACH, telefonbasierte KI-Begleiter | 14,99–29,90 €/Monat | 🟢 | Helfi-Ruf, inTouch; weitere Anbieter ohne öffentliche Preise | Kap. 23, 25, 27 |
+| A-38 | Anzahl aktiver Wettbewerber mit identischem Kernkonzept | ≥ 5 in DACH, ≥ 9 gesamt | 🟢 | Schnellrecherche 08/2026, siehe Kap. 23 | Kap. 23, 30 |
+| A-39 | Kein Wettbewerber mit Pflegekassen-Erstattung | zutreffend | 🟡 | Keiner der gefundenen Anbieter wirbt damit. **Abwesenheit von Werbung ist kein Beweis — direkt anfragen** | Kap. 23, 25, 37 |
+| A-40 | Gesprächslänge der Wettbewerber | ~5 Min./Tag bei 14,99 € | 🟡 | Rückgerechnet aus Preis und A-16. **Durch Testkundschaft messbar** | Kap. 9, 23, 27 |
 | A-19 | Ziel-Bruttomarge | 60 % | 🟡 | Branchenüblich für Hardware-freie SaaS mit hohen variablen Kosten | Kap. 27 |
 | A-20 | Daraus abgeleitetes Gesprächsbudget | ~390 Min./Monat ≈ 13 Min./Tag | 🟡 | Rechnerisch aus A-16, A-18, A-19. Ändert sich mit jedem dieser drei Werte | Kap. 8, 9, 11, 18 |
 | A-21 | CapEx eigene Hardwareentwicklung bis Serienreife | 250k–600k € | 🔴 | **Grobschätzung. Bei Verfolgung von E2-Phase-3 durch ODM-Angebote zu ersetzen** | Kap. 16, 27 |

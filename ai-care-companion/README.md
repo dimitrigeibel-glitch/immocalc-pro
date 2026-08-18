@@ -29,6 +29,19 @@ Die vollständige Argumentation mit Belegen: **[Kill-Questions](00-sparring/00-k
 
 ---
 
+## Der Wettbewerb ist bereits da
+
+Eine Schnellrecherche (August 2026) hat **mindestens fünf DACH-Anbieter** mit identischem Kernkonzept gefunden — Helfi-Ruf, Gisela.ai, halloHelga, Call HelloAgain, inTouch — dazu vier weitere in den USA. Alle sind telefonbasiert, alle liefern Angehörigen Berichte, die Preise liegen zwischen **14,99 € und 29,90 €**.
+
+Zwei Konsequenzen:
+
+- **Telefon-first ist Eintrittsvoraussetzung, kein Vorteil.** Die Empfehlung bleibt richtig — aber sie differenziert nicht mehr.
+- **Der Erstattungskanal ist frei.** Kein einziger Anbieter wirbt mit Kostenübernahme durch die Pflegekasse. Damit rückt § 40 SGB XI vom mittelfristigen Ziel zum strategischen Primärziel.
+
+Details, Preise und offene Fragen: **[Kapitel 23 — Wettbewerbsanalyse](05-business/23-wettbewerbsanalyse.md)**
+
+---
+
 ## Positionierung
 
 Drei in sich schlüssige Optionen stehen zur Wahl — [ausführlich hier](00-sparring/01-positionierung-optionen.md):
@@ -54,7 +67,7 @@ Drei in sich schlüssige Optionen stehen zur Wahl — [ausführlich hier](00-spa
 | [`02-produkt/`](02-produkt/) | Kap. 8–10: PRD, MVP, Feature Backlog | ⏳ offen |
 | [`03-technik-compliance/`](03-technik-compliance/) | Kap. 11–16: Systemarchitektur, Datenmodell, Rollen & Rechte, Datenschutz, Sicherheit, Hardware | ⏳ offen |
 | [`04-erlebnis-ki/`](04-erlebnis-ki/) | Kap. 17–21: UX, Gesprächsdesign, KI-Memory, Integrationen, API | ⏳ offen |
-| [`05-business/`](05-business/) | Kap. 22–27 + 37: Roadmap, Wettbewerb, Business Model Canvas, Monetarisierung, GTM, Finanzplanung, Förderstrategie | ⏳ offen |
+| [`05-business/`](05-business/) | Kap. 22–27 + 37: Roadmap, Wettbewerb, Business Model Canvas, Monetarisierung, GTM, Finanzplanung, Förderstrategie | 🔄 Kap. 23 in Erstfassung |
 | [`06-risiko-kapital/`](06-risiko-kapital/) | Kap. 28–36: Risiken, offene Entscheidungen, Investoren-Pitch + Zusatzkapitel | ⏳ offen |
 | [`anhang/`](anhang/) | Entscheidungsregister, Annahmenregister, Quellen, Förderrecherche-Prompt, Video-Prompt-Paket | 🔄 wächst mit |
 
